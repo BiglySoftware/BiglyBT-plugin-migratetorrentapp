@@ -1,0 +1,65 @@
+<!--
+  ~ Copyright (C) Bigly Software.  All Rights Reserved.
+  ~
+  ~ This program is free software; you can redistribute it and/or
+  ~ modify it under the terms of the GNU General Public License
+  ~ as published by the Free Software Foundation; either version 2
+  ~ of the License, or (at your option) any later version.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program; if not, write to the Free Software
+  ~ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+  -->
+
+<root>
+    <item name='com.biglybt.plugins.migratetorrentapp.Importer Importer(com.biglybt.pif.PluginInterface) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.Importer pi'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent Importer_uTorrent(com.biglybt.pif.PluginInterface) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent.TagToAddInfo addTag(com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo, java.lang.String, java.lang.String) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent.TagToAddInfo addTag(java.lang.String, java.lang.String, com.biglybt.plugins.migratetorrentapp.TorrentImportInfo) 2'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo processTorrent(com.biglybt.core.global.GlobalManager, java.io.File, java.util.Map&lt;java.lang.String,java.lang.Object&gt;)'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.io.File findFile(java.lang.String, java.lang.String) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.io.File lookForFile(java.lang.String, java.io.File) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.io.File lookForFile(java.lang.String, java.io.File) 1'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.lang.String getListTypeName(java.util.List, java.lang.String) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.lang.String getListTypeName(java.util.List, java.lang.String) 1'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent loggerChannel'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent pi'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent void addTagFromMap(com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo, java.util.Map&lt;java.lang.String,java.lang.Object&gt;, java.lang.String, java.lang.String) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent.TagToAddInfo items'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+</root>
