@@ -1,0 +1,9 @@
+.idea/
+/.classpath
+/.project
+*.class
+*.DS_Store
+*.biglybt
+*.zip
+*.jar
+*.bak

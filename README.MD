@@ -46,7 +46,7 @@ You will be able to review the changes before applying them.
     net_limit monthly total=200G
     ```
   Make sure your stats start day is set to the right day in Tools->Options->Statistics->Long Term
-* Adjusting or stopping torrents based on Seeding Goals are not compatabilt with BiglyBT's.  You will most likely need to rebuild your goals using First Priority Rules, Ignore Rules, Tagging logic, and/or the AutoPilot plugin.
+* Adjusting or stopping torrents based on Seeding Goals are not compatible with BiglyBT's.  You will most likely need to rebuild your goals using First Priority Rules, Ignore Rules, Tagging logic, and/or the AutoPilot plugin.
 * Anything related to Paired Devices is not imported from uT
 * WebUI and uT Remote settings are not migrated.  BiglyBT has a Transmission compatible remote rpc that can be accessed via Tools->Remote Pairing, or by installing the xmwebui plugin.
 * uT's Advanced->Run Program (global and per-torrent) migration not supported.  Equivilant functionality can be obtained using the Command Runner plugin.
