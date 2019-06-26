@@ -254,6 +254,7 @@ public class Importer_uTorrent
 //				System.out.println("--");
 			});
 			decoder.decodeStream(is, false);
+			is.close();
 		} catch (Throwable t) {
 			t.printStackTrace();
 			loggerChannel.log(t);

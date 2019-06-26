@@ -78,6 +78,7 @@ public class SettingsImportInfo
 			is = new BufferedInputStream(new FileInputStream(fileSettings));
 			BDecoder decoder = new BDecoder(Constants.UTF_8);
 			utSettings = decoder.decodeStream(is, false);
+			is.close();
 			DirectConfigMigrate item;
 
 			///
