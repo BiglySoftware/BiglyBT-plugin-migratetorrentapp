@@ -100,6 +100,14 @@ public class TorrentImportInfo
 	/** Need to be set via {@link DownloadManagerStats#setUploadRateLimitBytesPerSecond(int)} */
 	public int upSpeed;
 
+	private static final byte PIECE_NOT_DONE = 0;
+
+	private static final byte PIECE_DONE = 1;
+
+	private static final byte PIECE_RECHECK_REQUIRED = 2;
+
+	private static final byte PIECE_STARTED = 3;
+
 	/**
 	 * See {@link RDResumeHandler}<br>
 	 * <br>
@@ -150,7 +158,7 @@ public class TorrentImportInfo
 	public final List<InetSocketAddress> peers = new ArrayList<>();
 
 	/**
-	 * com.biglybt.core.disk.DiskManagerFileInfoSet#setSkipped(boolean[], boolean)
+	 * {@link com.biglybt.core.disk.DiskManagerFileInfoSet#setSkipped(boolean[], boolean)}
 	 */
 	public boolean[] fileSkipState;
 
@@ -159,6 +167,9 @@ public class TorrentImportInfo
 	 */
 	public int[] filePriorities;
 
+	/**
+	 * Map&lt;FileIndex, AbsolutePath>
+	 */
 	public final Map<Integer, String> fileLinks = new HashMap<>();
 
 	// TODO
@@ -185,15 +196,33 @@ public class TorrentImportInfo
 		processTorrent(torrentFile, map);
 	}
 
-	private File findFile(final String relativeOrAbsoluteFile, String basePath) {
+	private static boolean existsAndSizeOrZero(File file, long requiredSize) {
+		if (file == null) {
+			return false;
+		}
+		if (!file.exists()) {
+			return false;
+		}
+		if (requiredSize < 0) {
+			return true;
+		}
+		long length = file.length();
+		if (length == 0) {
+			return true;
+		}
+		return length == requiredSize;
+	}
+
+	private File findFile(final String relativeOrAbsoluteFile, String basePath,
+			long requiredSize) {
 		File file = new File(relativeOrAbsoluteFile);
-		if (file.isFile()) {
+		if (existsAndSizeOrZero(file, requiredSize)) {
 			return file;
 		}
 		boolean originalAbsolute = file.isAbsolute();
 		if (!originalAbsolute) {
 			file = new File(basePath, relativeOrAbsoluteFile);
-			if (file.isFile()) {
+			if (existsAndSizeOrZero(file, requiredSize)) {
 				return file;
 			}
 		}
@@ -204,19 +233,19 @@ public class TorrentImportInfo
 		for (String dataDir : importer.mapAdditionalDataDirs.keySet()) {
 			Boolean recursive = importer.mapAdditionalDataDirs.get(dataDir);
 			if (recursive != null && recursive) {
-				file = lookForFile(relativeFilename, new File(dataDir));
+				file = lookForFile(relativeFilename, new File(dataDir), requiredSize);
 			} else {
 				// because relativeFilename might be "foo.wmv", but
 				// relativeOrAbsoluteFile might be "bar/foo.wmv"
 				if (differs) {
 					file = new File(dataDir, relativeOrAbsoluteFile);
-					if (file.isFile()) {
+					if (existsAndSizeOrZero(file, requiredSize)) {
 						return file;
 					}
 				}
 				file = new File(dataDir, relativeFilename);
 			}
-			if (file != null && file.exists()) {
+			if (existsAndSizeOrZero(file, requiredSize)) {
 				return file;
 			}
 		}
@@ -224,9 +253,10 @@ public class TorrentImportInfo
 				: new File(basePath, relativeFilename);
 	}
 
-	static File lookForFile(String relativeOrAbsoluteFile, File path) {
+	static File lookForFile(String relativeOrAbsoluteFile, File path,
+			long requiredSize) {
 		File file = new File(path, relativeOrAbsoluteFile);
-		if (file.exists()) {
+		if (existsAndSizeOrZero(file, requiredSize)) {
 			return file;
 		}
 
@@ -239,7 +269,7 @@ public class TorrentImportInfo
 			return null;
 		}
 		for (File dir : dirs) {
-			file = lookForFile(relativeOrAbsoluteFile, dir);
+			file = lookForFile(relativeOrAbsoluteFile, dir, requiredSize);
 			if (file != null) {
 				return file;
 			}
@@ -462,11 +492,11 @@ public class TorrentImportInfo
 
 		return sb.toString();
 	}
-	
+
 	public boolean hasWarnings() {
 		return logWarnings.length() > 0;
 	}
-	
+
 	public boolean hasInfo() {
 		return logInfo.length() > 0;
 	}
@@ -524,20 +554,26 @@ public class TorrentImportInfo
 			Map existing_map = BDecoder.decode(bytes);
 			boolean hasEncoding = existing_map.containsKey("encoding");
 			if (hasEncoding) {
-				Map existing_info = (Map) existing_map.get("info");
-				List files = (List) existing_info.get("files");
-				if (files != null && files.size() > 0) {
-					boolean hasUTF8Path = (((Map) files.get(0)).containsKey(
-							"path.utf-8"));
-					if (hasUTF8Path) {
-						logWarnings.append(
-								"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly\n");
-						existing_map.remove("encoding");
-						File tempTorrentFile = File.createTempFile("Migrate_", ".torrent");
-						tempTorrentFile.deleteOnExit();
-						FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
-								BEncoder.encode(existing_map));
-						_torrentFile = tempTorrentFile;
+				String encoding = MapUtils.getMapString(existing_map, "encoding", "");
+				boolean hasNonUTF8Encoding = !encoding.equalsIgnoreCase("utf8")
+						&& !encoding.equalsIgnoreCase("utf-8");
+				if (hasNonUTF8Encoding) {
+					Map existing_info = (Map) existing_map.get("info");
+					List files = (List) existing_info.get("files");
+					if (files != null && files.size() > 0) {
+						boolean hasUTF8Path = (((Map) files.get(0)).containsKey(
+								"path.utf-8"));
+						if (hasUTF8Path) {
+							logInfo.append(
+									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly\n");
+							existing_map.remove("encoding");
+							File tempTorrentFile = File.createTempFile("Migrate_",
+									".torrent");
+							tempTorrentFile.deleteOnExit();
+							FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
+									BEncoder.encode(existing_map));
+							_torrentFile = tempTorrentFile;
+						}
 					}
 				}
 			}
@@ -681,9 +717,11 @@ public class TorrentImportInfo
 							 * private static final byte PIECE_RECHECK_REQUIRED = 2;
 							 * private static final byte PIECE_STARTED          = 3;
 							 */
-							pieceStates[pieceNo] = (byte) (haveBitSet ? hashedBitSet ? 1 : 2
+							pieceStates[pieceNo] = (byte) (haveBitSet
+									? hashedBitSet ? PIECE_DONE : PIECE_RECHECK_REQUIRED
 									: mapPieceBlocks != null
-											&& mapPieceBlocks.containsKey("" + pieceNo) ? 3 : 0);
+											&& mapPieceBlocks.containsKey("" + pieceNo)
+													? PIECE_STARTED : PIECE_NOT_DONE);
 							pieceNo++;
 							if (pieceNo == numPieces) {
 								break;
@@ -839,6 +877,8 @@ public class TorrentImportInfo
 			}
 		}
 
+		TOTorrentFile[] torrentFiles = torrent == null ? null : torrent.getFiles();
+
 		List listTargets = MapUtils.getMapList(map, ResumeConstants.TARGETS,
 				Collections.emptyList());
 		if (listTargets.size() > 0) {
@@ -873,34 +913,47 @@ public class TorrentImportInfo
 				if (new File(newPath).isAbsolute()) {
 					newPath = importer.replaceFolders(newPath);
 				}
-				File file = findFile(newPath, dirSavePath);
+				File file = findFile(newPath, dirSavePath,
+						torrentFiles == null ? -1 : torrentFiles[fileIndex].getLength());
 				fileLinks.put(fileIndex, file.getAbsolutePath());
 			}
 		}
 
 		// Check all files now that we have the target links
+		// TODO: What about the option "Append .!ut to incomplete files"?
 
-		if (torrent != null) {
+		if (torrentFiles != null) {
 			Map<Integer, String> mapNotFound = new LinkedHashMap<>();
-			Map<Integer, String> mapRelinked = new LinkedHashMap<>();
+			Map<String, String> mapRelinked = new LinkedHashMap<>();
 
-			TOTorrentFile[] files = torrent.getFiles();
-			for (int i = 0, filesLength = files.length; i < filesLength; i++) {
-				String s = fileLinks.get(i);
-				if (s != null) {
+			for (int i = 0, filesLength = torrentFiles.length; i < filesLength; i++) {
+				TOTorrentFile file = torrentFiles[i];
+
+				// uT doesn't create the file until a byte in the piece is downloaded
+				boolean needFile = false;
+				int start = file.getFirstPieceNumber();
+				int end = file.getLastPieceNumber();
+				for (int j = start; j <= end; j++) {
+					if (pieceStates[j] != PIECE_NOT_DONE) {
+						needFile = true;
+						break;
+					}
+				}
+
+				if (!needFile) {
 					continue;
 				}
-				// TODO: What if file skipped? We don't need it, unless it shares a piece with a wanted file
 
-				TOTorrentFile file = files[i];
 				String relativePath = file.getRelativePath();
 				if (new File(dirSavePath, relativePath).isFile()) {
 					continue;
 				}
-				File foundFile = findFile(relativePath, dirSavePath);
+				File foundFile = findFile(relativePath, dirSavePath, file.getLength());
 				if (foundFile != null && foundFile.isFile()) {
-					fileLinks.put(i, foundFile.getAbsolutePath());
-					mapRelinked.put(i, relativePath);
+					String existingFileLink = fileLinks.put(i,
+							foundFile.getAbsolutePath());
+					mapRelinked.put(i + (existingFileLink == null ? "" : "*"),
+							relativePath);
 				} else {
 					mapNotFound.put(i, relativePath);
 				}
@@ -934,24 +987,18 @@ public class TorrentImportInfo
 			if (mapRelinked.size() > 0) {
 				logInfo.append("Relinked files: ");
 				boolean first = true;
-				if (mapRelinked.size() > 5) {
-					for (Integer integer : mapNotFound.keySet()) {
-						if (first) {
-							first = false;
-						} else {
-							logInfo.append(", ");
-						}
-						logInfo.append("#");
-						logInfo.append(integer);
+				boolean showNames = mapRelinked.size() <= 5;
+				for (String idx : mapRelinked.keySet()) {
+					if (first) {
+						first = false;
+					} else {
+						logInfo.append(", ");
 					}
-				} else {
-					for (String value : mapRelinked.values()) {
-						if (first) {
-							first = false;
-						} else {
-							logInfo.append(", ");
-						}
-						logInfo.append(Utils.wrapString(value));
+					logInfo.append("#");
+					logInfo.append(idx);
+					if (showNames) {
+						logInfo.append(":");
+						logInfo.append(Utils.wrapString(mapRelinked.get(idx)));
 					}
 				}
 				logInfo.append('\n');
