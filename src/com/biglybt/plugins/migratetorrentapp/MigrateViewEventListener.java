@@ -27,6 +27,7 @@ import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
@@ -40,6 +41,7 @@ import com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo;
 import com.biglybt.ui.swt.Messages;
 import com.biglybt.ui.swt.Utils;
 import com.biglybt.ui.swt.config.BaseSwtParameter;
+import com.biglybt.ui.swt.mainwindow.ClipboardCopy;
 import com.biglybt.ui.swt.pif.UISWTView;
 import com.biglybt.ui.swt.pif.UISWTViewEvent;
 import com.biglybt.ui.swt.pif.UISWTViewEventListener;
@@ -65,6 +67,11 @@ public class MigrateViewEventListener
 	private Text resultTextArea;
 
 	private ScrolledComposite sc;
+
+	private Composite cResultsArea;
+
+	private boolean showOnlyWarningTorrents = true;
+	private boolean goingToRecalcSC;
 
 	@Override
 	public boolean eventOccurred(UISWTViewEvent event) {
@@ -107,7 +114,13 @@ public class MigrateViewEventListener
 		sc = new ScrolledComposite(parent, SWT.V_SCROLL);
 		sc.setExpandHorizontal(true);
 		sc.setExpandVertical(true);
-		sc.addListener(SWT.Resize, event -> recalcScrolledComposite());
+		sc.addListener(SWT.Resize, event -> {
+			if (goingToRecalcSC) {
+				return;
+			}
+			goingToRecalcSC = true;
+			Utils.execSWTThreadLater(10, () -> recalcScrolledComposite());
+		});
 
 		GridData gridData = new GridData(GridData.FILL_BOTH);
 		sc.setLayoutData(gridData);
@@ -124,7 +137,8 @@ public class MigrateViewEventListener
 		composite.setLayout(gridLayout);
 
 		Label label = new Label(composite, SWT.BORDER);
-		label.setText("ALPHA RELEASE -- Only Analyzes.  Does not migrate or modify anything.");
+		label.setText(
+				"ALPHA RELEASE -- Only Analyzes.  Does not migrate or modify anything.");
 		gridData = new GridData(GridData.FILL_HORIZONTAL);
 		gridData.horizontalSpan = 2;
 		FontUtils.setFontHeight(label, 12, SWT.BOLD);
@@ -153,42 +167,92 @@ public class MigrateViewEventListener
 
 		////
 
-		Composite cResultsArea = new Composite(composite, SWT.NONE);
+		cResultsArea = new Composite(composite, SWT.NONE);
 		gridData = new GridData(GridData.FILL_HORIZONTAL);
 		gridData.horizontalSpan = 2;
 		cResultsArea.setLayoutData(gridData);
 		cResultsArea.setLayout(new GridLayout());
 
+		configModelInfo.addListener(this::analysisComplete);
+	}
+
+	private void buildResultsArea(Importer_uTorrent importer) {
+		GridData gridData;
+
+		Utils.disposeComposite(cResultsArea, false);
+
+		Composite cButtonArea = new Composite(cResultsArea, SWT.NONE);
+		gridData = new GridData();
+		cButtonArea.setLayoutData(gridData);
+		GridLayout gridLayout = new GridLayout();
+		gridLayout.numColumns = 2;
+		cButtonArea.setLayout(gridLayout);
+
+		Button btnCopy = new Button(cButtonArea, SWT.PUSH);
+		Messages.setLanguageText(btnCopy, "migrateapp.button.copyAnalysisToClip");
+		Label lblCopy = new Label(cButtonArea, SWT.WRAP);
+		Messages.setLanguageText(lblCopy,
+				"migrateapp.button.copyAnalysisToClip.info");
+
+		btnCopy.addListener(SWT.Selection, event -> {
+			StringBuilder sb = buildAnalysisResults(importer, false, false);
+			ClipboardCopy.copyToClipBoard(sb.toString());
+		});
+
+		Button btnShowOnlyWarnings = new Button(cButtonArea, SWT.CHECK);
+		btnShowOnlyWarnings.setSelection(showOnlyWarningTorrents);
+		Messages.setLanguageText(btnShowOnlyWarnings,
+				"migrateapp.checkbox.onlyWwarnings");
+		btnShowOnlyWarnings.addListener(SWT.Selection, event -> {
+			showOnlyWarningTorrents = btnShowOnlyWarnings.getSelection();
+			StringBuilder sb = buildAnalysisResults(importer, true,
+					showOnlyWarningTorrents);
+			resultTextArea.setText(sb.toString());
+			recalcScrolledComposite();
+		});
+		gridData = new GridData();
+		gridData.horizontalSpan = 2;
+		btnShowOnlyWarnings.setLayoutData(gridData);
+
 		resultTextArea = new Text(cResultsArea,
 				SWT.BORDER | SWT.READ_ONLY | SWT.WRAP);
+		resultTextArea.setFont(
+				com.biglybt.plugins.migratetorrentapp.swt.FontUtils.getMonospaceFont(
+						resultTextArea.getDisplay(), 10));
 		gridData = new GridData(GridData.FILL_BOTH);
 		resultTextArea.setLayoutData(gridData);
 
-		configModelInfo.addListener(this::analysisComplete);
+		cResultsArea.layout(true);
 	}
 
 	private void recalcScrolledComposite() {
 		int width = sc.getClientArea().width;
 		Point size = parent.computeSize(width, SWT.DEFAULT);
 		sc.setMinSize(size);
+		goingToRecalcSC = false;
 	}
 
 	private void analysisComplete(Importer_uTorrent importer) {
-		StringBuilder sb = buildAnalysisResults(importer, true);
+		StringBuilder sb = buildAnalysisResults(importer, true,
+				showOnlyWarningTorrents);
 		Utils.execSWTThread(() -> {
+			buildResultsArea(importer);
 			resultTextArea.setText(sb.toString());
 			recalcScrolledComposite();
 		});
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
-			boolean showPrivate) {
+			boolean showPrivate, boolean onlyWarningTorrents) {
 		StringBuilder sb = new StringBuilder();
 		String nl = "\n╏ ";
 		String s;
 		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
 		boolean first = true;
 		for (TorrentImportInfo importInfo : importer.listTorrentsToImport) {
+			if (onlyWarningTorrents && !importInfo.hasWarnings()) {
+				continue;
+			}
 			if (first) {
 				first = false;
 			} else {
