@@ -21,6 +21,7 @@ package com.biglybt.plugins.migratetorrentapp.utorrent;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -94,13 +95,16 @@ public class SettingsImportInfo
 					if (dir == null) {
 						continue;
 					}
+					if (dir.endsWith(File.separator)) {
+						dir = dir.substring(0, dir.length() - 1);
+					}
 					if (dir.equals(lastDir)) {
 						continue;
 					}
 					lastDir = dir;
 					listDirHist.add(dir);
 				}
-				
+
 				List<String> utListDirHistStrings = new ArrayList<>(listDirHist);
 
 				if (listDirHist.size() > 0) {
@@ -108,8 +112,9 @@ public class SettingsImportInfo
 							ConfigKeys.File.SCFG_SAVE_TO_LIST);
 					listDirHist.addAll(existing);
 
-					item = new DirectConfigMigrate().addPrivate(SettingsConstants.ADD_DIALOG_HIST,
-							utListDirHistStrings, ConfigKeys.File.SCFG_SAVE_TO_LIST, listDirHist);
+					item = new DirectConfigMigrate().addPrivate(
+							SettingsConstants.ADD_DIALOG_HIST, utListDirHistStrings,
+							ConfigKeys.File.SCFG_SAVE_TO_LIST, listDirHist);
 					listConfigMigrations.add(item);
 				}
 			}
@@ -162,9 +167,12 @@ public class SettingsImportInfo
 				if (label.isEmpty()) {
 					continue;
 				}
-				TagToAddInfo tagToAddInfo = importer.addTagIgnoreGroup(null, label, "uTorrent Persistent Label");
+				TagToAddInfo tagToAddInfo = importer.addTagIgnoreGroup(null, label,
+						"uTorrent Persistent Label");
 				tagToAddInfo.showInSidebar = true;
 			}
+
+			processPreferencesAdvanced();
 
 		} catch (Throwable t) {
 			t.printStackTrace();
@@ -177,6 +185,29 @@ public class SettingsImportInfo
 				"RememberedDecisionConfig  = " + RememberedDecisionConfig.count);
 		System.out.println(
 				"listConfigMigrations.size()=" + listConfigMigrations.size());
+	}
+
+	private void processPreferencesAdvanced() {
+		Field[] fields = adv.class.getFields();
+		boolean first = true;
+		for (Field field : fields) {
+			try {
+				Object o = field.get(null);
+				if (o instanceof String) {
+					if (utSettings.containsKey((o))) {
+						if (first) {
+							logWarnings.append(
+									"\nThe following advanced settings were not migrated:\n");
+							first = false;
+						}
+						logWarnings.append("\t").append(o).append(" : ").append(
+								utSettings.get(o)).append("\n");
+					}
+				}
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	private void processPreferencesQueueing() {
@@ -614,7 +645,8 @@ public class SettingsImportInfo
 			String savePath = MapUtils.getMapString(utSettings,
 					Directories.DIR_ACTIVE_DOWNLOAD, "");
 			if (savePath.length() > 0 && new File(savePath).isDirectory()) {
-				item = new DirectConfigMigrate().addPrivate(Directories.DIR_ACTIVE_DOWNLOAD,
+				item = new DirectConfigMigrate().addPrivate(
+						Directories.DIR_ACTIVE_DOWNLOAD,
 						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath);
 				listConfigMigrations.add(item);
 			} else {
@@ -719,8 +751,7 @@ public class SettingsImportInfo
 					key = SCFG_PREFIX_WATCH_TORRENT_FOLDER_PATH
 							+ (i == 0 ? "" : (" " + i));
 				} while (COConfigurationManager.hasParameter(key, true));
-				item.addPrivate(Directories.DIR_AUTOLOAD, key,
-						autoImportTorrentsDir);
+				item.addPrivate(Directories.DIR_AUTOLOAD, key, autoImportTorrentsDir);
 
 				logInfo.append(
 						"You can also assign a tag to automatically imported torrents in Options->Files->Torrents\n");
@@ -1067,12 +1098,22 @@ public class SettingsImportInfo
 
 	public String toDebugString() {
 		StringBuilder sb = new StringBuilder();
+		if (logWarnings.length() > 0) {
+			sb.append("\nWarnings\n");
+			sb.append("--------\n");
+			sb.append(logWarnings).append("\n");
+		}
 
-
+		sb.append("Config Migrations\n");
+		sb.append("-----------------\n");
 		for (ConfigMigrateItem item : listConfigMigrations) {
 			sb.append(item.toDebugString());
 		}
-		
+
+		if (logInfo.length() > 0) {
+			sb.append("\nInfo\n").append("----\n").append(logInfo).append("\n");
+		}
+
 		return sb.toString();
 	}
 }
