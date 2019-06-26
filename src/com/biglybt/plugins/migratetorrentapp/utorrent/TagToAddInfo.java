@@ -49,7 +49,7 @@ public class TagToAddInfo
 
 	public String toDebugString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("'").append(name).append("'");
+		sb.append(Utils.wrapString(name));
 		if (group != null) {
 			sb.append(" [").append(group).append("]");
 		}
