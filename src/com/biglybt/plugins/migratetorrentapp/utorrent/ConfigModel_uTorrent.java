@@ -210,7 +210,18 @@ public class ConfigModel_uTorrent
 		ActionParameter paramAnalyze = configModel.addActionParameter2(null,
 				"utMigrate.button.analyze");
 		paramAnalyze.addConfigParameterListener(
-				param -> new Importer_uTorrent(pi, this));
+				param -> {
+					paramAnalyze.setEnabled(false);
+					new Importer_uTorrent(pi, this);
+					MigrateListener l = new MigrateListener() {
+						@Override
+						public void analysisComplete(Importer_uTorrent importer_uTorrent) {
+							removeListener(this);
+							paramAnalyze.setEnabled(true);
+						}
+					};
+					addListener(l);
+				});
 
 	}
 
@@ -232,7 +243,7 @@ public class ConfigModel_uTorrent
 		return this;
 	}
 
-	private void addDir(StringParameter param) {
+	private static void addDir(StringParameter param) {
 		Utils.execSWTThread(() -> {
 			Shell shell = Utils.findAnyShell(false);
 			DirectoryDialog dialog = new DirectoryDialog(shell,
