@@ -53,3 +53,4 @@ You will be able to review the changes before applying them.
 * Disk Cache setting are not migrated
 * Column setup is not migrated
 * RSS Feeds are not migrated
+* Most uT settings listed in Preferences->Advanced are not migrated yet
