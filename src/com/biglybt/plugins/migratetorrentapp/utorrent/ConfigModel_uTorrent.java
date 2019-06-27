@@ -22,27 +22,16 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.DirectoryDialog;
-import org.eclipse.swt.widgets.Shell;
-
 import com.biglybt.core.util.SystemProperties;
-import com.biglybt.pifimpl.local.ui.config.ParameterImpl;
 import com.biglybt.platform.win32.access.AEWin32Access;
 import com.biglybt.platform.win32.access.AEWin32AccessException;
 import com.biglybt.platform.win32.access.AEWin32Manager;
-import com.biglybt.ui.swt.Utils;
-import com.biglybt.ui.swt.pif.UISWTInstance;
+import com.biglybt.plugins.migratetorrentapp.MigrateTorrentAppUI;
 
 import com.biglybt.pif.PluginInterface;
-import com.biglybt.pif.ui.UIInstance;
 import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.config.*;
-import com.biglybt.pif.ui.menus.MenuItem;
-import com.biglybt.pif.ui.menus.MenuManager;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
-
-import static com.biglybt.plugins.migratetorrentapp.Plugin.VIEWID_MIGRATE;
 
 public class ConfigModel_uTorrent
 {
@@ -71,11 +60,15 @@ public class ConfigModel_uTorrent
 
 	private final List<MigrateListener> listeners = new ArrayList<>();
 
+	private MigrateTorrentAppUI appUI;
+
 	public ConfigModel_uTorrent(PluginInterface pi) {
 		this.pi = pi;
 	}
 
-	public BasicPluginConfigModel getConfigModel(UIManager uiManager) {
+	public BasicPluginConfigModel getConfigModel(UIManager uiManager,
+			MigrateTorrentAppUI appUI) {
+		this.appUI = appUI;
 		if (configModel == null) {
 			buildConfigModel(uiManager);
 		}
@@ -130,55 +123,64 @@ public class ConfigModel_uTorrent
 
 		////
 
+		List<Parameter> listTorrentDirParams = new ArrayList<>();
+
 		LabelParameter paramTorrentDirsInfo = configModel.addLabelParameter2(
 				"utMigrate.torrentDirs.info");
+		listTorrentDirParams.add(paramTorrentDirsInfo);
 
 		paramTorrentDirs = configModel.addStringParameter2("utTorrentDirs", "", "");
+		listTorrentDirParams.add(paramTorrentDirs);
 		paramTorrentDirs.setMultiLine(4);
 		//does not work until 2.0.0.1
 		//paramTorrentDirs.setSuffixLabelKey("utMigrate.torrentDirs.info");
 
-		ActionParameter btnAddTorrentDir = configModel.addActionParameter2("",
-				"utMigrate.button.addTorrentDir");
-		if (btnAddTorrentDir instanceof ParameterImpl) {
-			((ParameterImpl) btnAddTorrentDir).setAllowedUiTypes(UIInstance.UIT_SWT);
+		if (appUI.canBrowseDir()) {
+			ActionParameter btnAddTorrentDir = configModel.addActionParameter2("",
+					"utMigrate.button.addTorrentDir");
+			listTorrentDirParams.add(btnAddTorrentDir);
+			btnAddTorrentDir.addListener(
+					p -> appUI.browseAndAddDir(paramTorrentDirs));
 		}
-		btnAddTorrentDir.addListener(p -> addDir(paramTorrentDirs));
 
 		ParameterGroup groupTorrentDirs = configModel.createGroup(
-				"utMigrate.torrentDirs", paramTorrentDirs, btnAddTorrentDir,
-				paramTorrentDirsInfo);
+				"utMigrate.torrentDirs",
+				listTorrentDirParams.toArray(new Parameter[0]));
 		listToggle.add(groupTorrentDirs);
 
 		////
 
+		List<Parameter> listDataDirParams = new ArrayList<>();
+
 		paramDataDirsRecursive = configModel.addStringParameter2(
 				"utDataDirsRecursive", "utMigrate.dataDirs.recursive", "");
+		listDataDirParams.add(paramDataDirsRecursive);
 		paramDataDirsRecursive.setMultiLine(4);
 
-		ActionParameter btnAddDataDirRecursive = configModel.addActionParameter2("",
-				"utMigrate.button.addDataDir");
-		if (btnAddDataDirRecursive instanceof ParameterImpl) {
-			((ParameterImpl) btnAddDataDirRecursive).setAllowedUiTypes(
-					UIInstance.UIT_SWT);
+		if (appUI.canBrowseDir()) {
+			ActionParameter btnAddDataDirRecursive = configModel.addActionParameter2(
+					"", "utMigrate.button.addDataDir");
+			listDataDirParams.add(btnAddDataDirRecursive);
+			btnAddDataDirRecursive.addListener(
+					p -> appUI.browseAndAddDir(paramDataDirsRecursive));
 		}
-		btnAddDataDirRecursive.addListener(p -> addDir(paramDataDirsRecursive));
 
 		paramDataDirsSingle = configModel.addStringParameter2("utDataDirsSingle",
 				"utMigrate.dataDirs.single", "");
+		listDataDirParams.add(paramDataDirsSingle);
 		paramDataDirsSingle.setMultiLine(3);
 
-		ActionParameter btnAddDataDirSingle = configModel.addActionParameter2("",
-				"utMigrate.button.addDataDir");
-		if (btnAddDataDirSingle instanceof ParameterImpl) {
-			((ParameterImpl) btnAddDataDirSingle).setAllowedUiTypes(
-					UIInstance.UIT_SWT);
+		if (appUI.canBrowseDir()) {
+			ActionParameter btnAddDataDirSingle = configModel.addActionParameter2("",
+					"utMigrate.button.addDataDir");
+			listDataDirParams.add(btnAddDataDirSingle);
+			btnAddDataDirSingle.addListener(
+					p -> appUI.browseAndAddDir(paramDataDirsSingle));
 		}
-		btnAddDataDirSingle.addListener(p -> addDir(paramDataDirsSingle));
 
 		ParameterGroup groupDataDirs = configModel.createGroup(
-				"utMigrate.group.dataDirs", paramDataDirsRecursive,
-				btnAddDataDirRecursive, paramDataDirsSingle, btnAddDataDirSingle);
+				"utMigrate.group.dataDirs",
+				listDataDirParams.toArray(new Parameter[0]));
 
 		listToggle.add(groupDataDirs);
 
@@ -208,52 +210,25 @@ public class ConfigModel_uTorrent
 		////
 
 		ActionParameter paramAnalyze = configModel.addActionParameter2(null,
-				"utMigrate.button.analyze");
-		paramAnalyze.addConfigParameterListener(
-				param -> {
-					paramAnalyze.setEnabled(false);
-					new Importer_uTorrent(pi, this);
-					MigrateListener l = new MigrateListener() {
-						@Override
-						public void analysisComplete(Importer_uTorrent importer_uTorrent) {
-							removeListener(this);
-							paramAnalyze.setEnabled(true);
-						}
-					};
-					addListener(l);
-				});
+				"migrateapp.button.analyze");
+		paramAnalyze.addConfigParameterListener(param -> {
+			paramAnalyze.setEnabled(false);
+			new Importer_uTorrent(pi, this);
+			MigrateListener l = new MigrateListener() {
+				@Override
+				public void analysisComplete(Importer_uTorrent importer_uTorrent) {
+					removeListener(this);
+					paramAnalyze.setActionResource("migrateapp.button.reanalyze");
+					paramAnalyze.setEnabled(true);
+				}
+			};
+			addListener(l);
+		});
 
 	}
 
 	public ConfigModel_uTorrent setupConfigModel(UIManager uiManager) {
-		MenuManager menuManager = uiManager.getMenuManager();
-		MenuItem menuItem = menuManager.addMenuItem(MenuManager.MENU_MENUBAR_TOOLS,
-				"menu.utorrent.migrate");
-		menuItem.addListener((menu, target) -> {
-			//uiManager.showConfigSection("utMigrate.title");
-			UIInstance[] uiInstances = uiManager.getUIInstances();
-			for (UIInstance uiInstance : uiInstances) {
-				if (uiInstance instanceof UISWTInstance) {
-					((UISWTInstance) uiInstance).openView("", VIEWID_MIGRATE, this);
-					break;
-				}
-			}
-		});
-
 		return this;
-	}
-
-	private static void addDir(StringParameter param) {
-		Utils.execSWTThread(() -> {
-			Shell shell = Utils.findAnyShell(false);
-			DirectoryDialog dialog = new DirectoryDialog(shell,
-					SWT.APPLICATION_MODAL);
-			String open = dialog.open();
-			if (open != null && open.length() > 0) {
-				String value = param.getValue();
-				param.setValue(value + "\n" + open);
-			}
-		});
 	}
 
 	private File getConfigDir() {

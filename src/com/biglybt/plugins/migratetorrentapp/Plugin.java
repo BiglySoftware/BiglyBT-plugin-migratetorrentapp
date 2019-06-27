@@ -18,29 +18,39 @@
 
 package com.biglybt.plugins.migratetorrentapp;
 
-import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent;
-import com.biglybt.ui.swt.pif.UISWTInstance;
+import com.biglybt.core.util.Debug;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.UnloadablePlugin;
 import com.biglybt.pif.ui.UIInstance;
 import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.UIManagerListener;
-import com.biglybt.pif.ui.menus.MenuItem;
-import com.biglybt.pif.ui.menus.MenuManager;
 
 public class Plugin
 	implements UnloadablePlugin
 {
 
-	public static final String VIEWID_MIGRATE = "migrate";
+	private MigrateTorrentAppUI ui;
 
-	private UISWTInstance swtInstance;
+	private boolean destroyed;
 
 	@Override
 	public void unload() {
-		if (swtInstance != null) {
-			swtInstance.removeViews("", VIEWID_MIGRATE);
+		synchronized (this) {
+
+			if (destroyed) {
+
+				return;
+			}
+
+			destroyed = true;
+		}
+
+		if (ui != null) {
+
+			ui.destroy();
+
+			ui = null;
 		}
 	}
 
@@ -48,23 +58,41 @@ public class Plugin
 	public void initialize(PluginInterface pi) {
 		UIManager uiManager = pi.getUIManager();
 
-		ConfigModel_uTorrent configModel_uTorrent = new ConfigModel_uTorrent(
-				pi).setupConfigModel(uiManager);
-
 		uiManager.addUIListener(new UIManagerListener() {
 			@Override
 			public void UIAttached(UIInstance instance) {
-				if (instance instanceof UISWTInstance) {
-					swtInstance = (UISWTInstance) instance;
-					swtInstance.addView("", VIEWID_MIGRATE,
-							MigrateViewEventListener.class, configModel_uTorrent);
+				if (instance.getUIType().equals(UIInstance.UIT_SWT)) {
+					if (destroyed) {
+
+						return;
+					}
+
+					try {
+						Class<?> cla = Plugin.class.forName(
+								"com.biglybt.plugins.migratetorrentapp.swt.MigrateTorrentAppUISWT");
+						ui = (MigrateTorrentAppUI) cla.getMethod("getSingleton",
+								PluginInterface.class, UIInstance.class, Plugin.class).invoke(
+										null, pi, instance, Plugin.this);
+
+					} catch (Throwable e) {
+
+						Debug.out(e);
+					}
 				}
 			}
 
 			@Override
 			public void UIDetached(UIInstance instance) {
+				if (instance.getUIType().equals(UIInstance.UIT_SWT) && ui != null) {
+					ui.destroy();
+					ui = null;
+				}
 
 			}
 		});
+	}
+
+	public boolean isDestroyed() {
+		return destroyed;
 	}
 }

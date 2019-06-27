@@ -18,15 +18,12 @@
 
 package com.biglybt.plugins.migratetorrentapp;
 
-import com.biglybt.pif.PluginInterface;
+import com.biglybt.pif.ui.config.StringParameter;
 
-public abstract class Importer
-	implements Runnable
-{
-	public final PluginInterface pi;
+public interface MigrateTorrentAppUI {
+	void destroy();
 
-	public Importer(PluginInterface pi) {
-		this.pi = pi;
-	}
+	boolean canBrowseDir();
 
+	void browseAndAddDir(StringParameter param);
 }

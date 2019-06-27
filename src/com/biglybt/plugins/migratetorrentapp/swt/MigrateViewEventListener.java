@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package com.biglybt.plugins.migratetorrentapp;
+package com.biglybt.plugins.migratetorrentapp.swt;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -147,7 +147,7 @@ public class MigrateViewEventListener
 		// Hack the config model into our composite. muah ha ha!
 
 		BasicPluginConfigModel ourModel = configModelInfo.getConfigModel(
-				pi.getUIManager());
+				pi.getUIManager(), MigrateTorrentAppUISWT.getInstance());
 
 		Parameter[] parameters = ourModel.getParameters();
 
