@@ -444,7 +444,7 @@ public class TorrentImportInfo
 		}
 		if (upSpeed > 0) {
 			sb.append("Limit upload speed to ").append(
-					DisplayFormatters.formatByteCountToKiBEtcPerSec(downSpeed)).append(
+					DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(
 							"\n");
 		}
 
@@ -1122,6 +1122,9 @@ public class TorrentImportInfo
 		DownloadManagerStats dmStats = dm.getStats();
 		if (downSpeed > 0) {
 			dmStats.setDownloadRateLimitBytesPerSecond(downSpeed);
+		}
+		if (upSpeed > 0) {
+			dmStats.setUploadRateLimitBytesPerSecond(upSpeed);
 		}
 
 		dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
