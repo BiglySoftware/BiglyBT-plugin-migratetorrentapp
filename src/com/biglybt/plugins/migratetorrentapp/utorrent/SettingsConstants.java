@@ -981,7 +981,7 @@ public interface SettingsConstants
 		 *   <li>"Default audio rule"</li>
 		 *   <li>"Default document rule"</li>
 		 *   <li>"Default video rule"</li>
-		 *   <li>"contains:" + String</li>
+		 *   <li>"contains:" + String (case insensitive)</li>
 		 *   </ul>
 		 **/
 		String LABELRULEMAP = "labelRuleMap";

@@ -46,6 +46,9 @@ import com.biglybt.util.MapUtils;
 
 import com.biglybt.pif.torrent.TorrentAttribute;
 
+/**
+ * TODO: Do we do simple torrents correctly (save path, renames, etc)
+ */
 public class TorrentImportInfo
 	implements Comparable<TorrentImportInfo>
 {
@@ -175,7 +178,7 @@ public class TorrentImportInfo
 	// TODO
 	public String execOnComplete;
 
-	public int startMode;
+	public int startMode = DownloadManager.STATE_STOPPED;
 
 	public final List<List<String>> trackers = new ArrayList<>();
 
@@ -845,8 +848,8 @@ public class TorrentImportInfo
 		downloadingForSecs = MapUtils.getMapLong(map, ResumeConstants.RUNTIME, 0);
 		seedingForSecs = MapUtils.getMapLong(map, ResumeConstants.SEEDTIME, 0);
 
-		int startMode = MapUtils.getMapInt(map, ResumeConstants.STARTED, 0);
-		switch (startMode) {
+		int utStartMode = MapUtils.getMapInt(map, ResumeConstants.STARTED, 0);
+		switch (utStartMode) {
 			case 0: {
 				startMode = DownloadManager.STATE_STOPPED;
 				break;
@@ -1060,9 +1063,12 @@ public class TorrentImportInfo
 	}
 
 	public void addDownloadManager() {
+		startMode = DownloadManager.STATE_STOPPED; // TODO: Remove me or add option
+		File fileDirSavePath = new File(dirSavePath);
 		DownloadManager dm = importer.gm.addDownloadManager(
-				torrentFile.getAbsolutePath(), infoHash, dirSavePath, startMode, true,
-				order == -1, new DownloadManagerInitialisationAdapter() {
+				torrentFile.getAbsolutePath(), infoHash, fileDirSavePath.getParent(),
+				fileDirSavePath.getName(), startMode, true, order == -1,
+				new DownloadManagerInitialisationAdapter() {
 					@Override
 					public void initialised(DownloadManager dm, boolean for_seeding) {
 						initDM(dm);
@@ -1140,18 +1146,11 @@ public class TorrentImportInfo
 
 		// File specific settings
 		DiskManagerFileInfoSet file_info_set = dm.getDiskManagerFileInfoSet();
-		if (fileSkipState != null) {
-			file_info_set.setSkipped(fileSkipState, true);
-		}
-
-		if (filePriorities != null) {
-			file_info_set.setPriority(filePriorities);
-		}
+		DiskManagerFileInfo[] fileInfos = file_info_set.getFiles();
 
 		if (fileLinks.size() > 0) {
 			// Can't use fileInfo.setLink(fDest) as it renames
 			// the existing file if there is one
-			DiskManagerFileInfo[] fileInfos = file_info_set.getFiles();
 			int numFiles = fileInfos.length;
 
 			List<Integer> source_indexes = new ArrayList<>();
@@ -1175,6 +1174,27 @@ public class TorrentImportInfo
 			}
 		}
 
+		if (fileSkipState != null) {
+			boolean[] toCompact = new boolean[fileSkipState.length];
+			boolean doCompact = false;
+			for (int i = 0, fileSkipStateLength = fileSkipState.length; i < fileSkipStateLength; i++) {
+				if (fileSkipState[i]) {
+					File file = fileInfos[i].getFile(true);
+					toCompact[i] = !file.exists() || file.length() == 0;
+					doCompact = true;
+				}
+			}
+			if (doCompact) {
+				file_info_set.setStorageTypes(toCompact,
+						DiskManagerFileInfo.ST_COMPACT);
+			}
+			file_info_set.setSkipped(fileSkipState, true);
+		}
+
+		if (filePriorities != null) {
+			file_info_set.setPriority(filePriorities);
+		}
+
 		// Resume data
 		if (mapPieceBlocks != null || pieceStates != null) {
 			Map mapResume = new HashMap();
@@ -1195,7 +1215,8 @@ public class TorrentImportInfo
 		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
 				TagType.TT_DOWNLOAD_MANUAL);
 		for (TagToAddInfo tagToAddInfo : tags.keySet()) {
-			Tag tag = ttManual.getTag(tagToAddInfo.name, false);
+			Tag tag = tagToAddInfo.tag;
+			//Tag tag = ttManual.getTag(tagToAddInfo.name, false);
 			if (tag != null) {
 				tag.addTaggable(dm);
 			}

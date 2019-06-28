@@ -49,4 +49,9 @@ public class RememberedDecisionConfig
 						")\n");
 		return sb;
 	}
+
+	@Override
+	public void migrate() {
+		// TODO
+	}
 }

@@ -35,6 +35,7 @@ import org.eclipse.swt.widgets.Text;
 import com.biglybt.pifimpl.local.ui.config.ParameterImpl;
 import com.biglybt.pifimpl.local.ui.config.ParameterImplListener;
 import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent;
+import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent.MigrateListener;
 import com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TagToAddInfo;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo;
@@ -54,7 +55,7 @@ import com.biglybt.pif.ui.config.Parameter;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 
 public class MigrateViewEventListener
-	implements UISWTViewEventListener
+	implements UISWTViewEventListener, MigrateListener
 {
 	private UISWTView swtView;
 
@@ -71,6 +72,7 @@ public class MigrateViewEventListener
 	private Composite cResultsArea;
 
 	private boolean showOnlyWarningTorrents = true;
+
 	private boolean goingToRecalcSC;
 
 	@Override
@@ -87,6 +89,7 @@ public class MigrateViewEventListener
 				break;
 
 			case UISWTViewEvent.TYPE_INITIALIZE:
+
 				initialize((Composite) event.getData());
 				break;
 
@@ -147,7 +150,7 @@ public class MigrateViewEventListener
 		// Hack the config model into our composite. muah ha ha!
 
 		BasicPluginConfigModel ourModel = configModelInfo.getConfigModel(
-				pi.getUIManager(), MigrateTorrentAppUISWT.getInstance());
+				pi.getUIManager(), MigrateTorrentAppUISWT.getSingleton());
 
 		Parameter[] parameters = ourModel.getParameters();
 
@@ -173,7 +176,7 @@ public class MigrateViewEventListener
 		cResultsArea.setLayoutData(gridData);
 		cResultsArea.setLayout(new GridLayout());
 
-		configModelInfo.addListener(this::analysisComplete);
+		configModelInfo.addListener(this);
 	}
 
 	private void buildResultsArea(Importer_uTorrent importer) {
@@ -232,7 +235,7 @@ public class MigrateViewEventListener
 		goingToRecalcSC = false;
 	}
 
-	private void analysisComplete(Importer_uTorrent importer) {
+	public void analysisComplete(Importer_uTorrent importer) {
 		StringBuilder sb = buildAnalysisResults(importer, true,
 				showOnlyWarningTorrents);
 		Utils.execSWTThread(() -> {
@@ -240,6 +243,11 @@ public class MigrateViewEventListener
 			resultTextArea.setText(sb.toString());
 			recalcScrolledComposite();
 		});
+	}
+
+	@Override
+	public void migrationComplete() {
+
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,

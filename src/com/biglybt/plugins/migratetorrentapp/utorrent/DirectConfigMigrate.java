@@ -152,4 +152,34 @@ public class DirectConfigMigrate
 		return sb;
 	}
 
+	@Override
+	public void migrate() {
+		for (ConfigChange configChange : configChanges) {
+			setParameter(configChange.biglyKey, configChange.biglyValue);
+		}
+	}
+
+	private boolean setParameter(String key, Object value) {
+		boolean changed = false;
+		if (value == null) {
+			return COConfigurationManager.removeParameter(key);
+		}
+		Class valueType = value.getClass();
+		if (String.class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (String) value);
+		} else if (Integer.class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (Integer) value);
+		} else if (Float.class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (Float) value);
+		} else if (Boolean.class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (Boolean) value);
+		} else if (Long.class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (Long) value);
+		} else if (byte[].class.equals(valueType)) {
+			changed = COConfigurationManager.setParameter(key, (byte[]) value);
+		}
+
+		return changed;
+	}
+
 }

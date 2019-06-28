@@ -38,6 +38,8 @@ public class ConfigModel_uTorrent
 	public interface MigrateListener
 	{
 		void analysisComplete(Importer_uTorrent importer_uTorrent);
+
+		void migrationComplete();
 	}
 
 	private final PluginInterface pi;
@@ -61,6 +63,9 @@ public class ConfigModel_uTorrent
 	private final List<MigrateListener> listeners = new ArrayList<>();
 
 	private MigrateTorrentAppUI appUI;
+
+	private ActionParameter actionMigrate;
+	private Importer_uTorrent importer;
 
 	public ConfigModel_uTorrent(PluginInterface pi) {
 		this.pi = pi;
@@ -213,13 +218,43 @@ public class ConfigModel_uTorrent
 				"migrateapp.button.analyze");
 		paramAnalyze.addConfigParameterListener(param -> {
 			paramAnalyze.setEnabled(false);
-			new Importer_uTorrent(pi, this);
+			importer = new Importer_uTorrent(pi, this);
 			MigrateListener l = new MigrateListener() {
 				@Override
-				public void analysisComplete(Importer_uTorrent importer_uTorrent) {
+				public void analysisComplete(Importer_uTorrent importer) {
 					removeListener(this);
 					paramAnalyze.setActionResource("migrateapp.button.reanalyze");
 					paramAnalyze.setEnabled(true);
+					// Can do this after 2001
+					//actionMigrate.setVisible(true);
+					actionMigrate.setEnabled(true);
+				}
+
+				@Override
+				public void migrationComplete() {
+
+				}
+			};
+			addListener(l);
+		});
+
+		actionMigrate = configModel.addActionParameter2(null,
+				"migrateapp.button.migrate");
+		// Can do this after 2001
+		//actionMigrate.setVisible(false);
+		actionMigrate.setEnabled(false);
+		actionMigrate.addConfigParameterListener(param -> {
+			actionMigrate.setEnabled(false);
+			importer.migrate();
+			MigrateListener l = new MigrateListener() {
+				@Override
+				public void analysisComplete(Importer_uTorrent importer) {
+				}
+
+				@Override
+				public void migrationComplete() {
+					removeListener(this);
+					actionMigrate.setEnabled(true);
 				}
 			};
 			addListener(l);

@@ -47,11 +47,11 @@ public class MigrateTorrentAppUISWT
 
 	private final UISWTInstance swtInstance;
 
-	public static MigrateTorrentAppUISWT getInstance() {
+	public static MigrateTorrentAppUISWT getSingleton() {
 		return instance;
 	}
 
-	public static MigrateTorrentAppUISWT getInstance(PluginInterface pi,
+	public static MigrateTorrentAppUISWT getSingleton(PluginInterface pi,
 			UIInstance uiInstance, Plugin plugin) {
 		if (instance == null) {
 			instance = new MigrateTorrentAppUISWT(pi, (UISWTInstance) uiInstance);
@@ -71,7 +71,7 @@ public class MigrateTorrentAppUISWT
 		MenuItem menuItem = menuManager.addMenuItem(MenuManager.MENU_MENUBAR_TOOLS,
 				"menu.utorrent.migrate");
 		menuItem.addListener((menu, target) -> {
-			swtInstance.openView("", VIEWID_MIGRATE, this);
+			swtInstance.openView("", VIEWID_MIGRATE, configModel_uTorrent);
 		});
 
 		swtInstance.addView("", VIEWID_MIGRATE, MigrateViewEventListener.class,

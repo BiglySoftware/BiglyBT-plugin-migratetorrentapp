@@ -22,6 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.biglybt.core.tag.Tag;
 import com.biglybt.plugins.migratetorrentapp.Utils;
 
 public class TagToAddInfo
@@ -33,6 +34,8 @@ public class TagToAddInfo
 	public int maxUp;
 
 	public int maxDown;
+
+	public Tag tag;
 
 	String name;
 
@@ -60,7 +63,7 @@ public class TagToAddInfo
 			sb.append("\n\tInitial Save Folder: ").append(
 					Utils.wrapString(initialSaveFolder));
 		}
-		if (maxUp > 0 || maxDown > 0) {
+		if (maxUp != 0 || maxDown != 0) {
 			sb.append("\n\tMax Up: ").append(maxUp).append("; Max Down: ").append(
 					maxDown);
 		}

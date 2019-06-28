@@ -27,10 +27,8 @@ import java.util.*;
 
 import com.biglybt.core.CoreFactory;
 import com.biglybt.core.global.GlobalManager;
-import com.biglybt.core.tag.Tag;
-import com.biglybt.core.tag.TagException;
-import com.biglybt.core.tag.TagManagerFactory;
-import com.biglybt.core.tag.TagType;
+import com.biglybt.core.tag.*;
+import com.biglybt.core.tag.TagFeatureProperties.TagProperty;
 import com.biglybt.core.torrent.TOTorrentException;
 import com.biglybt.core.util.BDecoder;
 import com.biglybt.core.util.Constants;
@@ -46,8 +44,6 @@ import com.biglybt.pif.logging.LoggerChannel;
 public class Importer_uTorrent
 	extends Importer
 {
-
-	private static final boolean TEST_ONLY = true;
 
 	public static final String PLUGINID_AZEXEC = "azexec";
 
@@ -184,29 +180,79 @@ public class Importer_uTorrent
 	}
 
 	public void migrate() {
-		if (!TEST_ONLY) {
-			TagType ttManual = TagManagerFactory.getTagManager().getTagType(
-					TagType.TT_DOWNLOAD_MANUAL);
-			if (ttManual != null) {
-				for (TagToAddInfo tagToAddInfo : mapTagsToAdd.values()) {
+		settingsImportInfo.migrate();
 
-					try {
-						Tag tag = ttManual.createTag(tagToAddInfo.name, false);
-						if (tag != null && tagToAddInfo.group != null) {
-							tag.setGroup(tagToAddInfo.group);
-						}
+		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
+				TagType.TT_DOWNLOAD_MANUAL);
+		if (ttManual != null) {
+			for (TagToAddInfo tagToAddInfo : mapTagsToAdd.values()) {
 
-					} catch (TagException e) {
-						// TODO: Report
-						e.printStackTrace();
+				try {
+					Tag tag = ttManual.createTag(tagToAddInfo.name, false);
+					if (tagToAddInfo.group != null) {
+						tag.setGroup(tagToAddInfo.group);
 					}
+					tag.setVisible(tagToAddInfo.showInSidebar);
+					if (tagToAddInfo.constraint != null) {
+						if (tag.getTagType().hasTagTypeFeature(TagFeature.TF_PROPERTIES)
+								&& (tag instanceof TagFeatureProperties)) {
+							TagFeatureProperties tfp = (TagFeatureProperties) tag;
+
+							// private static final String CM_ADD_REMOVE 	= "am=0;";
+							// private static final String CM_ADD_ONLY	 	= "am=1;";
+							// private static final String CM_REMOVE_ONLY	= "am=2;";
+							// private static final String CM_NEW_DLS		= "am=3;";
+
+							final TagProperty propConstraint = tfp.getProperty(
+									TagFeatureProperties.PR_CONSTRAINT);
+							if (propConstraint != null) {
+								propConstraint.setStringList(new String[] {
+									tagToAddInfo.constraint,
+									"am=0;"
+								});
+							}
+
+						}
+					}
+
+					if (tagToAddInfo.initialSaveFolder != null) {
+						if (tag.getTagType().hasTagTypeFeature(
+								TagFeature.TF_FILE_LOCATION)) {
+							TagFeatureFileLocation fl = (TagFeatureFileLocation) tag;
+
+							if (fl.supportsTagInitialSaveFolder()) {
+								fl.setTagInitialSaveFolder(
+										new File(tagToAddInfo.initialSaveFolder));
+							}
+						}
+					}
+					
+					if (tagToAddInfo.maxDown != 0 || tagToAddInfo.maxUp != 0) {
+						if (tag.getTagType().hasTagTypeFeature(TagFeature.TF_RATE_LIMIT)) {
+							TagFeatureRateLimit rl = (TagFeatureRateLimit) tag;
+							if (tagToAddInfo.maxDown != 0 && rl.supportsTagDownloadLimit()) {
+								rl.setTagDownloadLimit(tagToAddInfo.maxDown);
+							}
+							if (tagToAddInfo.maxUp != 0 && rl.supportsTagUploadLimit()) {
+								rl.setTagUploadLimit(tagToAddInfo.maxUp);
+							}
+						}
+					}
+
+					ttManual.addTag(tag);
+
+					tagToAddInfo.tag = tag;
+
+				} catch (TagException e) {
+					// TODO: Report
+					e.printStackTrace();
 				}
 			}
+		}
 
-			for (TorrentImportInfo importInfo : listTorrentsToImport) {
-				if (importInfo.torrentFile != null) {
-					importInfo.addDownloadManager();
-				}
+		for (TorrentImportInfo importInfo : listTorrentsToImport) {
+			if (importInfo.torrentFile != null) {
+				importInfo.addDownloadManager();
 			}
 		}
 	}

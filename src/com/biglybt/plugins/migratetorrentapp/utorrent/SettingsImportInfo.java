@@ -22,10 +22,7 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.biglybt.core.config.COConfigurationManager;
 import com.biglybt.core.config.ConfigKeys;
@@ -313,6 +310,8 @@ public class SettingsImportInfo
 		boolean useAutoLabel = getFlag(label.USEAUTOLABEL, false);
 
 		if (useAutoLabel) {
+			Map<String, TagToAddInfo> mapNewLabel2Directory = new HashMap<>();
+
 			Map mapLabelDirectory = MapUtils.getMapMap(utSettings,
 					label.LABELDIRECTORYMAP, Collections.emptyMap());
 			for (Object key : mapLabelDirectory.keySet()) {
@@ -322,6 +321,7 @@ public class SettingsImportInfo
 						TG_UTORRENT_DIRMAPPING);
 				if (tagToAddInfo != null) {
 					tagToAddInfo.initialSaveFolder = dir;
+					mapNewLabel2Directory.put(label, tagToAddInfo);
 				}
 			}
 			Map mapLabelRule = MapUtils.getMapMap(utSettings, label.LABELRULEMAP,
@@ -331,11 +331,13 @@ public class SettingsImportInfo
 				String rule = Utils.objectToString(mapLabelRule.get(key));
 				if (rule.startsWith("contains:")) {
 					String containRule = rule.substring(9);
-					TagToAddInfo tagToAddInfo = importer.addTag(null, label,
-							TG_UTORRENT_CONTAINS);
+					TagToAddInfo tagToAddInfo = mapNewLabel2Directory.get(label);
+					if (tagToAddInfo == null) {
+						tagToAddInfo = importer.addTag(null, label, TG_UTORRENT_CONTAINS);
+					}
 					if (tagToAddInfo != null) {
 						String constraint = "contains(name, \""
-								+ containRule.replaceAll("\"", "\\\"") + "\")";
+								+ containRule.replaceAll("\"", "\\\"") + "\", 1)"; // 1 = case insensitive
 						if (tagToAddInfo.constraint != null) {
 							tagToAddInfo.constraint = tagToAddInfo.constraint + " && "
 									+ constraint;
@@ -1115,5 +1117,11 @@ public class SettingsImportInfo
 		}
 
 		return sb.toString();
+	}
+
+	public void migrate() {
+		for (ConfigMigrateItem item : listConfigMigrations) {
+			item.migrate();
+		}
 	}
 }
