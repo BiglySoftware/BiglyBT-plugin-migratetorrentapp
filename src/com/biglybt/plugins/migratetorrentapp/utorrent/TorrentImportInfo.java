@@ -571,7 +571,7 @@ public class TorrentImportInfo
 									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly\n");
 							existing_map.remove("encoding");
 							File tempTorrentFile = File.createTempFile("Migrate_",
-									".torrent");
+									".torrent", AETemporaryFileHandler.getTempDirectory());
 							tempTorrentFile.deleteOnExit();
 							FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
 									BEncoder.encode(existing_map));
@@ -1188,6 +1188,7 @@ public class TorrentImportInfo
 				}
 			}
 			if (doCompact) {
+				// This will reset resume data
 				file_info_set.setStorageTypes(toCompact,
 						DiskManagerFileInfo.ST_COMPACT);
 			}
@@ -1209,8 +1210,8 @@ public class TorrentImportInfo
 			if (pieceStates != null) {
 				mapResumeData.put("resume data", pieceStates);
 			}
-			mapResumeData.put("valid", 1);
-			downloadState.setResumeData(mapResumeData);
+			mapResumeData.put("valid", 1L); // must be long
+			downloadState.setResumeData(mapResume);
 		}
 
 		// Tags
