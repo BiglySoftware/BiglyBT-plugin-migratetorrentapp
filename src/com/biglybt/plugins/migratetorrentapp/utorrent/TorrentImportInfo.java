@@ -19,6 +19,8 @@
 package com.biglybt.plugins.migratetorrentapp.utorrent;
 
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -35,8 +37,6 @@ import com.biglybt.core.download.DownloadManagerInitialisationAdapter;
 import com.biglybt.core.download.DownloadManagerState;
 import com.biglybt.core.download.DownloadManagerStats;
 import com.biglybt.core.tag.Tag;
-import com.biglybt.core.tag.TagManagerFactory;
-import com.biglybt.core.tag.TagType;
 import com.biglybt.core.torrent.TOTorrent;
 import com.biglybt.core.torrent.TOTorrentFile;
 import com.biglybt.core.util.*;
@@ -126,6 +126,8 @@ public class TorrentImportInfo
 	 **/
 	public byte[] pieceStates;
 
+	public List<Long> filesBytesDownloaded = null;
+
 	/**
 	 * Map&lt;PieceNumber, List&lt;Block Numbers>>
 	 * <br>
@@ -192,6 +194,7 @@ public class TorrentImportInfo
 	public byte[] infoHash;
 
 	public boolean forceStart;
+
 
 	public TorrentImportInfo(Importer_uTorrent importer, File torrentFile,
 			Map<String, Object> map) {
@@ -570,8 +573,8 @@ public class TorrentImportInfo
 							logInfo.append(
 									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly\n");
 							existing_map.remove("encoding");
-							File tempTorrentFile = File.createTempFile("Migrate_",
-									".torrent", AETemporaryFileHandler.getTempDirectory());
+							File tempTorrentFile = File.createTempFile("Migrate_", ".torrent",
+									AETemporaryFileHandler.getTempDirectory());
 							tempTorrentFile.deleteOnExit();
 							FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
 									BEncoder.encode(existing_map));
@@ -633,8 +636,14 @@ public class TorrentImportInfo
 
 		hashFails = MapUtils.getMapInt(map, ResumeConstants.HASHFAILS, 0);
 
+		TOTorrentFile[] torrentFiles = torrent == null ? null : torrent.getFiles();
+
 		if (torrent != null) {
 			int numPieces = torrent.getNumberOfPieces();
+			long pieceLength = torrent.getPieceLength();
+			int numBlocksPerPiece = (int) ((pieceLength + DiskManager.BLOCK_SIZE - 1)
+					/ DiskManager.BLOCK_SIZE);
+
 			byte[] havePiecesBits = (byte[]) map.get(ResumeConstants.HAVE);
 			byte[] hashedPiecesBits = (byte[]) map.get(ResumeConstants.HASHED);
 			/**
@@ -650,11 +659,8 @@ public class TorrentImportInfo
 			List uTorrentPieceBlocks = MapUtils.getMapList(map,
 					ResumeConstants.BLOCKS, Collections.EMPTY_LIST);
 			if (uTorrentPieceBlocks.size() > 0) {
-				long pieceLength = torrent.getPieceLength();
 				// Stolen from DiskManagerPieceImpl(DiskManagerHelper, int, int)
-				int numBlocks = (int) ((pieceLength + DiskManager.BLOCK_SIZE - 1)
-						/ DiskManager.BLOCK_SIZE);
-				int blockBitsLength = (numBlocks + 7) / 8;
+				int blockBitsLength = (numBlocksPerPiece + 7) / 8;
 
 				mapPieceBlocks = new HashMap<>();
 				for (int blockArrayIndex = 0, uTorrentPieceBlocksSize = uTorrentPieceBlocks.size(); blockArrayIndex < uTorrentPieceBlocksSize; blockArrayIndex++) {
@@ -686,7 +692,8 @@ public class TorrentImportInfo
 					}
 
 					int curBlockNo = 0;
-					for (int i = 4; i < rowBytes.length && curBlockNo < numBlocks; i++) {
+					for (int i = 4; i < rowBytes.length
+							&& curBlockNo < numBlocksPerPiece; i++) {
 						byte blockByte = rowBytes[i];
 						for (int bitPos = 0; bitPos < 8; bitPos++) {
 							boolean haveBitSet = (blockByte & (byte) (1 << bitPos)) != 0;
@@ -694,7 +701,7 @@ public class TorrentImportInfo
 								haveBlocks.add((long) curBlockNo);
 							}
 							curBlockNo++;
-							if (curBlockNo == numBlocks) {
+							if (curBlockNo == numBlocksPerPiece) {
 								break;
 							}
 						}
@@ -734,6 +741,74 @@ public class TorrentImportInfo
 					}
 				} catch (Throwable t) {
 					logWarnings.append(Debug.getNestedExceptionMessageAndStack(t));
+				}
+			}
+
+			if (pieceStates != null || mapPieceBlocks != null) {
+				long remainingFromLastPiece = 0;
+				filesBytesDownloaded = new ArrayList<>();
+				for (TOTorrentFile file : torrentFiles) {
+					int first = file.getFirstPieceNumber();
+					int last = file.getLastPieceNumber();
+					long length = file.getLength();
+
+					long lengthUnprocessed = length;
+					long bytesDownloaded = 0;
+					for (int i = first; i <= last; i++) {
+						if (pieceStates[i] == PIECE_DONE) {
+							if (i == first && remainingFromLastPiece > 0) {
+								bytesDownloaded += remainingFromLastPiece;
+							} else if (i == last) {
+								bytesDownloaded += lengthUnprocessed;
+							} else {
+								bytesDownloaded += pieceLength;
+							}
+
+							if (i == first) {
+								remainingFromLastPiece = 0;
+							}
+							if (i == last) {
+								remainingFromLastPiece = pieceLength - lengthUnprocessed;
+							}
+						} /* else if (mapPieceBlocks != null) {
+							int fileStartsAtBlock = i == first
+									? (int) ((pieceLength - remainingFromLastPiece)
+											/ DiskManager.BLOCK_SIZE)
+									: 0;
+							int fileEndsAtBlock = i == last
+									&& lengthUnprocessed < DiskManager.BLOCK_SIZE
+											? (int) (lengthUnprocessed / DiskManager.BLOCK_SIZE)
+											: numBlocksPerPiece - 1;
+							List<Long> blocks = mapPieceBlocks.get("" + i);
+							for (Long blockNo : blocks) {
+								if (blockNo >= fileStartsAtBlock
+										&& blockNo <= fileEndsAtBlock) {
+									long pieceBytesSpent = blockNo * DiskManager.BLOCK_SIZE;
+									long blockBytesDownloaded = DiskManager.BLOCK_SIZE;
+									
+									if (blockNo == fileStartsAtBlock) {
+										long remainingBlockBytes = remainingFromLastPiece % DiskManager.BLOCK_SIZE;
+										blockBytesDownloaded = remainingBlockBytes;
+									} 
+									if (blockNo == fileEndsAtBlock) {
+										long bytesNotOurs = 
+										blockBytesDownloaded -= bytesNotOurs;
+									}
+									bytesDownloaded += blockBytesDownloaded;
+								}
+							}
+							}*/
+
+						if (i == first && remainingFromLastPiece > 0) {
+							lengthUnprocessed -= remainingFromLastPiece;
+						} else {
+							// doesn't matter if it ends up being negative.. we'd be exiting
+							// loop and not using it.
+							lengthUnprocessed -= pieceLength;
+						}
+
+					}
+					filesBytesDownloaded.add(bytesDownloaded);
 				}
 			}
 		}
@@ -880,8 +955,6 @@ public class TorrentImportInfo
 			}
 		}
 
-		TOTorrentFile[] torrentFiles = torrent == null ? null : torrent.getFiles();
-
 		List listTargets = MapUtils.getMapList(map, ResumeConstants.TARGETS,
 				Collections.emptyList());
 		if (listTargets.size() > 0) {
@@ -922,6 +995,40 @@ public class TorrentImportInfo
 			}
 		}
 
+		byte[] suffixFlags = MapUtils.getMapByteArray(map, ResumeConstants.SUFFIXES,
+				null);
+		if (suffixFlags != null) {
+			// Not sure if uT can have the "append .!ut" disabled but still have torrents with suffix flag bits on (and still have .!ut appended)
+			// BiglyBT can.  In case uT can, we don't rely on the settings.dat flag, but let the bits indicate if we enabled suffix
+			boolean anyEnabled = false;
+			for (byte suffixFlag : suffixFlags) {
+				if (suffixFlag != 0) {
+					anyEnabled = true;
+					break;
+				}
+			}
+			if (anyEnabled) {
+				mapDMStateAttr.put(DownloadManagerState.AT_INCOMP_FILE_SUFFIX, ".!ut");
+				int pos = 0;
+				for (byte suffixFlag : suffixFlags) {
+					for (int bitPos = 0; bitPos < 8; bitPos++) {
+						boolean isBitSet = (suffixFlag & (byte) (1 << bitPos)) != 0;
+						if (isBitSet) {
+							String s = fileLinks.get(pos);
+							if (s == null) {
+								s = new File(dirSavePath, torrentFiles[pos].getRelativePath()
+										+ ".!ut").getAbsolutePath();
+							} else {
+								s += ".!ut";
+							}
+							fileLinks.put(pos, s);
+						}
+						pos++;
+					}
+				}
+			}
+		}
+
 		// Check all files now that we have the target links
 		// TODO: What about the option "Append .!ut to incomplete files"?
 
@@ -947,6 +1054,10 @@ public class TorrentImportInfo
 					continue;
 				}
 
+				String fileLink = fileLinks.get(i);
+				if (fileLink != null && new File(fileLink).isFile()) {
+					continue;
+				}
 				String relativePath = file.getRelativePath();
 				if (new File(dirSavePath, relativePath).isFile()) {
 					continue;
@@ -958,31 +1069,25 @@ public class TorrentImportInfo
 					mapRelinked.put(i + (existingFileLink == null ? "" : "*"),
 							relativePath);
 				} else {
-					mapNotFound.put(i, relativePath);
+					mapNotFound.put(i, fileLink == null ? relativePath : fileLink);
 				}
 			}
 
 			if (mapNotFound.size() > 0) {
 				logWarnings.append("Could not find the following files: ");
 				boolean first = true;
-				if (mapNotFound.size() > 5) {
-					for (Integer integer : mapNotFound.keySet()) {
-						if (first) {
-							first = false;
-						} else {
-							logWarnings.append(", ");
-						}
-						logWarnings.append("#");
-						logWarnings.append(integer);
+				boolean showNames = mapNotFound.size() <= 5;
+				for (int idx : mapNotFound.keySet()) {
+					if (first) {
+						first = false;
+					} else {
+						logWarnings.append(", ");
 					}
-				} else {
-					for (String value : mapNotFound.values()) {
-						if (first) {
-							first = false;
-						} else {
-							logWarnings.append(", ");
-						}
-						logWarnings.append(Utils.wrapString(value));
+					logWarnings.append("#");
+					logWarnings.append(idx);
+					if (showNames) {
+						logWarnings.append(":");
+						logWarnings.append(Utils.wrapString(mapNotFound.get(idx)));
 					}
 				}
 				logWarnings.append('\n');
@@ -1063,6 +1168,12 @@ public class TorrentImportInfo
 	}
 
 	public void addDownloadManager() {
+		DownloadManager existingDM = importer.gm.getDownloadManager(torrent);
+		if (existingDM != null) {
+			System.err.println(Utils.wrapString(existingDM.getDisplayName())
+					+ " already exists in BiglyBT. Skipping");
+			return;
+		}
 		startMode = DownloadManager.STATE_STOPPED; // TODO: Remove me or add option
 		File fileDirSavePath = new File(dirSavePath);
 		DownloadManager dm = importer.gm.addDownloadManager(
@@ -1079,8 +1190,8 @@ public class TorrentImportInfo
 						return ACT_ASSIGNS_TAGS;
 					}
 				});
-		if (dm != null && forceStart) {
-			dm.setForceStart(true);
+		if (dm != null) {
+			postInitDM(dm);
 		}
 	}
 
@@ -1126,9 +1237,6 @@ public class TorrentImportInfo
 		if (upSpeed > 0) {
 			dmStats.setUploadRateLimitBytesPerSecond(upSpeed);
 		}
-
-		dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
-				hashFails, downloadingForSecs, seedingForSecs);
 
 		// Peer Cache
 		Map trackerResponseCache = new LightHashMap(1);
@@ -1214,13 +1322,80 @@ public class TorrentImportInfo
 			downloadState.setResumeData(mapResume);
 		}
 
+		if (filesBytesDownloaded != null) {
+			Map mapFileDownloaded = new HashMap();
+			mapFileDownloaded.put("downloaded", filesBytesDownloaded);
+			downloadState.setMapAttribute(DownloadManagerState.AT_FILE_DOWNLOADED,
+					mapFileDownloaded);
+			try {
+				Method setFileLinks = dm.getClass().getDeclaredMethod("setFileLinks");
+				setFileLinks.setAccessible(true);
+				setFileLinks.invoke(dm);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		// BiglyBT requires non-skipped files exist (and probably skipped files that share a piece with non-skipped)
+		for (int i = 0; i < fileInfos.length; i++) {
+			DiskManagerFileInfo fileInfo = fileInfos[i];
+			if (fileInfo.isSkipped()) {
+				boolean sharedPieceWithNonSkipped = false;
+				if (i > 0) {
+					int firstPieceNumber = fileInfo.getFirstPieceNumber();
+					for (int j = i - 1; j >= 0 && !sharedPieceWithNonSkipped; j--) {
+						DiskManagerFileInfo prevFileInfo = fileInfos[j];
+						int prevLastPieceNumber = prevFileInfo.getLastPieceNumber();
+						if (prevLastPieceNumber < firstPieceNumber) {
+							break;
+						}
+						if (!prevFileInfo.isSkipped()) {
+							sharedPieceWithNonSkipped = true;
+						}
+					}
+				}
+				if (!sharedPieceWithNonSkipped && i < fileInfos.length - 1) {
+					int lastPieceNumber = fileInfo.getLastPieceNumber();
+					for (int j = i + 1; j < fileInfos.length
+							&& !sharedPieceWithNonSkipped; j++) {
+						DiskManagerFileInfo nextFileInfo = fileInfos[j];
+						int nextFirstPieceNumber = nextFileInfo.getFirstPieceNumber();
+						if (nextFirstPieceNumber > lastPieceNumber) {
+							break;
+						}
+						if (!nextFileInfo.isSkipped()) {
+							sharedPieceWithNonSkipped = true;
+						}
+					}
+				}
+				if (!sharedPieceWithNonSkipped) {
+					continue;
+				}
+			}
+			File file = fileInfo.getFile(true);
+			if (!file.exists()) {
+				// TODO: We may have to allocate the full file, depending on BiglyBT's settings
+				try {
+					if (!file.getParentFile().isDirectory()) {
+						file.getParentFile().mkdirs();
+					}
+					file.createNewFile();
+				} catch (IOException e) {
+					System.err.println("create new file: " + file);
+					e.printStackTrace();
+				}
+			}
+		}
+		dm.setDataAlreadyAllocated(true);
+
+		// Can't set these until after DM is added to GM
+		//dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
+		//		hashFails, downloadingForSecs, seedingForSecs);
+
 		// Tags
 
-		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
-				TagType.TT_DOWNLOAD_MANUAL);
 		for (TagToAddInfo tagToAddInfo : tags.keySet()) {
 			Tag tag = tagToAddInfo.tag;
-			//Tag tag = ttManual.getTag(tagToAddInfo.name, false);
 			if (tag != null) {
 				tag.addTaggable(dm);
 			}
@@ -1248,6 +1423,16 @@ public class TorrentImportInfo
 			TorrentAttribute attr = importer.pi.getTorrentManager().getPluginAttribute(
 					"command");
 			downloadState.setAttribute(attr.getName(), execOnComplete);
+		}
+	}
+
+	private void postInitDM(DownloadManager dm) {
+		DownloadManagerStats dmStats = dm.getStats();
+		dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
+				hashFails, downloadingForSecs, seedingForSecs);
+
+		if (forceStart) {
+			dm.setForceStart(true);
 		}
 	}
 

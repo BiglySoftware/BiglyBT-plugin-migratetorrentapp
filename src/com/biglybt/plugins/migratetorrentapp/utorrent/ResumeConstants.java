@@ -504,12 +504,14 @@ public class ResumeConstants {
 	public static final String STATS_WALLET_SLOTS = "stats_wallet_slots";
 
 	/** byte[]<br>
-	 * bit per file?
+	 * bit per file.<br/>
+	 * bit is 0 : No suffix<br/>
+	 * bit is 1 : Suffix (.ut!) appended to filename
 	 */
 	public static final String SUFFIXES = "suffixes";
 
 	/** Long<br>
-	 * [TORRENT PROPERTES] Initial Seeding
+	 * [TORRENT PROPERTIES] Initial Seeding
 	 */
 	public static final String SUPERSEED = "superseed";
 
