@@ -40,6 +40,7 @@ import com.biglybt.util.MapUtils;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.logging.LoggerChannel;
+import com.biglybt.util.StringCompareUtils;
 
 public class Importer_uTorrent
 	extends Importer
@@ -188,7 +189,12 @@ public class Importer_uTorrent
 			for (TagToAddInfo tagToAddInfo : mapTagsToAdd.values()) {
 
 				try {
-					Tag tag = ttManual.createTag(tagToAddInfo.name, false);
+					Tag existingTag = ttManual.getTag(tagToAddInfo.name, true);
+					boolean exists = existingTag != null && StringCompareUtils.equals(
+							existingTag.getGroup(), tagToAddInfo.group);
+
+					Tag tag = exists ? existingTag
+							: ttManual.createTag(tagToAddInfo.name, false);
 					if (tagToAddInfo.group != null) {
 						tag.setGroup(tagToAddInfo.group);
 					}
@@ -226,7 +232,7 @@ public class Importer_uTorrent
 							}
 						}
 					}
-					
+
 					if (tagToAddInfo.maxDown != 0 || tagToAddInfo.maxUp != 0) {
 						if (tag.getTagType().hasTagTypeFeature(TagFeature.TF_RATE_LIMIT)) {
 							TagFeatureRateLimit rl = (TagFeatureRateLimit) tag;
