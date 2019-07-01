@@ -304,6 +304,18 @@ public class SettingsImportInfo
 		item = new DirectConfigMigrate(General.AUTOSTART,
 				StartupShutdown.BCFG_START_ON_LOGIN, autoStart);
 		listConfigMigrations.add(item);
+
+		boolean preAllocSpace = getFlag(General.PREALLOC_SPACE,
+				General.PREALLOC_SPACE_DEF);
+		item = new DirectConfigMigrate(General.PREALLOC_SPACE, BCFG_ZERO_NEW,
+				preAllocSpace);
+		if (!preAllocSpace) {
+			// Even when BCFG_ZERO_NEW is off, BiglyBT allocates the whole size
+			// Disabling BCFG_ENABLE_INCREMENTAL_FILE_CREATION allocates a 0 byte file, which is as close to the uT setting as we can get
+			item.add(General.PREALLOC_SPACE, preAllocSpace,
+					BCFG_ENABLE_INCREMENTAL_FILE_CREATION, true);
+		}
+		listConfigMigrations.add(item);
 	}
 
 	private void processPreferencesLabel() {
