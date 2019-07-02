@@ -18,6 +18,8 @@
 
 package com.biglybt.plugins.migratetorrentapp.utorrent;
 
+import com.biglybt.ui.common.RememberedDecisionsManager;
+
 public class RememberedDecisionConfig
 	implements ConfigMigrateItem
 {
@@ -52,6 +54,6 @@ public class RememberedDecisionConfig
 
 	@Override
 	public void migrate() {
-		// TODO
+		RememberedDecisionsManager.setRemembered(rememberID, value);
 	}
 }
