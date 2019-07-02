@@ -80,12 +80,15 @@ public class DirectConfigMigrate
 
 		public boolean isAlreadyValue() {
 			Object val;
-			if (utValue instanceof Boolean && biglyValue instanceof Boolean) {
+			if (biglyValue instanceof Boolean) {
 				val = COConfigurationManager.getBooleanParameter(biglyKey);
-			} else if (utValue instanceof String && biglyValue instanceof String) {
+			} else if (biglyValue instanceof String) {
 				val = COConfigurationManager.getStringParameter(biglyKey);
 			} else {
 				val = COConfigurationManager.getParameter(biglyKey);
+				if (val instanceof Long && biglyValue instanceof Integer) {
+					val = ((Long) val).intValue();
+				}
 			}
 			return biglyValue.equals(val);
 		}
