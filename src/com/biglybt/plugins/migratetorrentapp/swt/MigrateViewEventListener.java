@@ -252,30 +252,29 @@ public class MigrateViewEventListener
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
 			boolean showPrivate, boolean onlyWarningTorrents) {
 		StringBuilder sb = new StringBuilder();
-		String nl = "\n╏ ";
+		String nl = "\n│ ";
 		String s;
-		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
+		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		sb.append(importer.listTorrentsToImport.size()).append(
 				" torrents to be imported. Any torrents already in BiglyBT will be skipped.").append(
 						nl);
-		boolean first = true;
 		for (TorrentImportInfo importInfo : importer.listTorrentsToImport) {
 			if (onlyWarningTorrents && !importInfo.hasWarnings()) {
 				continue;
 			}
-			sb.append("\n┠╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(
+			sb.append("\n├─────────────────────────────────────────────────").append(
 					nl).append(nl);
 			s = importInfo.toDebugString(showPrivate).replaceAll("\n", nl);
 			sb.append(s);
 		}
-		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
+		sb.append("\n└─────────────────────────────────────────────────\n\n");
 
-		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
+		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		s = importer.settingsImportInfo.toDebugString(showPrivate).replaceAll("\n",
 				nl);
 		sb.append(s);
 
-		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
+		sb.append("\n└──────────────────────────────────────────────────\n\n");
 
 		sb.append("Tags\n");
 		sb.append("----\n");

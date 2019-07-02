@@ -1123,7 +1123,7 @@ public class SettingsImportInfo
 	public String toDebugString() {
 		StringBuilder sb = new StringBuilder();
 		if (logWarnings.length() > 0) {
-			sb.append("\nWarnings\n");
+			sb.append("\nConfig Warnings\n");
 			sb.append("--------\n");
 			sb.append(logWarnings).append("\n");
 		}

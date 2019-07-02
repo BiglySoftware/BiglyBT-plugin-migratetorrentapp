@@ -482,7 +482,15 @@ public class TorrentImportInfo
 
 	@Override
 	public int compareTo(TorrentImportInfo o) {
-		int c = Long.compare(order, o.order);
+		boolean complete0 = order == -1;
+		boolean complete1 = o.order == -1;
+		
+		int c= Boolean.compare(complete0, complete1);
+		if (c != 0) {
+			return c;
+		}
+
+		c = Long.compare(order, o.order);
 		if (c != 0) {
 			return c;
 		}
