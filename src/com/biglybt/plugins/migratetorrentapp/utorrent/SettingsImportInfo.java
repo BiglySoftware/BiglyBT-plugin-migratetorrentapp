@@ -62,6 +62,8 @@ public class SettingsImportInfo
 
 	boolean hasRunProgram;
 
+	public boolean preAllocSpace;
+
 	public SettingsImportInfo(Importer_uTorrent importer) {
 		this.importer = importer;
 	}
@@ -305,8 +307,7 @@ public class SettingsImportInfo
 				StartupShutdown.BCFG_START_ON_LOGIN, autoStart);
 		listConfigMigrations.add(item);
 
-		boolean preAllocSpace = getFlag(General.PREALLOC_SPACE,
-				General.PREALLOC_SPACE_DEF);
+		preAllocSpace = getFlag(General.PREALLOC_SPACE, General.PREALLOC_SPACE_DEF);
 		item = new DirectConfigMigrate(General.PREALLOC_SPACE, BCFG_ZERO_NEW,
 				preAllocSpace);
 		if (!preAllocSpace) {
@@ -718,7 +719,6 @@ public class SettingsImportInfo
 				item.addPrivate(Directories.DIR_TORRENT_FILES,
 						ConfigKeys.File.SCFG_GENERAL_DEFAULT_TORRENT_DIRECTORY,
 						saveTorrentFileDir);
-				listConfigMigrations.add(item);
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
 						Utils.wrapString(saveTorrentFileDir)).append('\n');
@@ -759,13 +759,23 @@ public class SettingsImportInfo
 			if (!autoImportTorrentsDir.isEmpty()
 					&& new File(autoImportTorrentsDir).exists()) {
 				String key;
-				int i = -1;
-				do {
-					i++;
+				int i = 0;
+				while (true) {
 					key = SCFG_PREFIX_WATCH_TORRENT_FOLDER_PATH
 							+ (i == 0 ? "" : (" " + i));
-				} while (COConfigurationManager.hasParameter(key, true));
-				item.addPrivate(Directories.DIR_AUTOLOAD, key, autoImportTorrentsDir);
+					String existingWatchPath = COConfigurationManager.getStringParameter(key);
+					if (existingWatchPath.isEmpty()) {
+						break;
+					}
+					if (existingWatchPath.equalsIgnoreCase(autoImportTorrentsDir)) {
+						key = null;
+						break;
+					}
+					i++;
+				}
+				if (key != null) {
+					item.addPrivate(Directories.DIR_AUTOLOAD, key, autoImportTorrentsDir);
+				}
 
 				logInfo.append(
 						"You can also assign a tag to automatically imported torrents in Options->Files->Torrents\n");
