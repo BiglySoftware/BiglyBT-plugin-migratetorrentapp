@@ -52,6 +52,7 @@ import com.biglybt.pif.torrent.TorrentAttribute;
 public class TorrentImportInfo
 	implements Comparable<TorrentImportInfo>
 {
+	private static boolean PARTIAL_PIECES_IN_DL_BYTES = false;
 
 	private final Importer_uTorrent importer;
 
@@ -195,6 +196,9 @@ public class TorrentImportInfo
 
 	public boolean forceStart;
 
+	private long haveBlockBytes;
+
+	private long havePieceBytes;
 
 	public TorrentImportInfo(Importer_uTorrent importer, File torrentFile,
 			Map<String, Object> map) {
@@ -371,13 +375,13 @@ public class TorrentImportInfo
 				int numPiecesNeedRecheck = 0;
 				for (byte pieceState : pieceStates) {
 					switch (pieceState) {
-						case 1:
+						case RDResumeHandler.PIECE_DONE:
 							numDonePieces++;
 							break;
-						case 2:
+						case RDResumeHandler.PIECE_RECHECK_REQUIRED:
 							numPiecesNeedRecheck++;
 							break;
-						case 3:
+						case RDResumeHandler.PIECE_STARTED:
 							numStartedPieces++;
 							break;
 					}
@@ -388,55 +392,13 @@ public class TorrentImportInfo
 			}
 
 			sb.append(downloadedBytes).append(" bytes downloaded\n");
-			if (pieceStates != null && torrent != null) {
-				long pieceLength = torrent.getPieceLength();
-				int numberOfPieces = torrent.getNumberOfPieces();
-				int lastPieceLength = (int) (torrent.getSize()
-						- ((long) (numberOfPieces - 1) * (long) pieceLength));
-
-				int lastBlockLength = lastPieceLength % DiskManager.BLOCK_SIZE;
-				int lastBlock = lastPieceLength / DiskManager.BLOCK_SIZE;
-
-				if (numberOfPieces != pieceStates.length) {
-					sb.append("# state pieces (").append(pieceStates.length).append(
-							" does not match real piece count of ").append(
-									numberOfPieces).append("\n");
-				}
-
-				long haveBytes = 0;
-				for (int i = 0, pieceStatesLength = pieceStates.length; i < pieceStatesLength; i++) {
-					byte pieceState = pieceStates[i];
-					if (pieceState == 1) {
-						if (i == pieceStatesLength - 1) {
-
-							haveBytes += lastPieceLength;
-						} else {
-							haveBytes += pieceLength;
-						}
-					}
-				}
-				sb.append(haveBytes).append(" bytes in fully downloaded pieces\n");
-
-				if (mapPieceBlocks != null) {
-					for (String pieceNumberString : mapPieceBlocks.keySet()) {
-						List<Long> listBlockNumbers = mapPieceBlocks.get(pieceNumberString);
-						boolean isLastPiece = pieceNumberString.equals(
-								"" + (numberOfPieces - 1));
-						for (Long listBlockNumber : listBlockNumbers) {
-							if (isLastPiece && listBlockNumber == lastBlock) {
-								haveBytes += lastBlockLength;
-							} else {
-								haveBytes += DiskManager.BLOCK_SIZE;
-							}
-						}
-					}
-				}
-				sb.append(haveBytes).append(
+			sb.append(havePieceBytes).append(" bytes in fully downloaded pieces\n");
+			if (haveBlockBytes > 0) {
+				sb.append(havePieceBytes + haveBlockBytes).append(
 						" bytes in fully downloaded pieces and blocks\n");
-
-				if (downloadedBytes != haveBytes) {
-					sb.append("Piece & Block Info does not match downloaded results!\n");
-				}
+			}
+			if (downloadedBytes != havePieceBytes + haveBlockBytes) {
+				sb.append("Piece & Block Info does not match downloaded results!\n");
 			}
 		}
 
@@ -486,9 +448,20 @@ public class TorrentImportInfo
 
 		if (fileLinks.size() > 0) {
 			sb.append(fileLinks.size()).append(" linked files\n");
+			int numFakeRelinks = 0;
 			for (Integer index : fileLinks.keySet()) {
-				sb.append("Index ").append(index).append(": ").append(
-						Utils.wrapString(fileLinks.get(index))).append("\n");
+				String absoluteFile = fileLinks.get(index);
+				if (absoluteFile.endsWith(".!ut")
+						&& absoluteFile.startsWith(dirSavePath)) {
+					numFakeRelinks++;
+				} else {
+					sb.append("\tIndex ").append(index).append(": ").append(
+							Utils.wrapString(absoluteFile)).append("\n");
+				}
+			}
+			if (numFakeRelinks > 0) {
+				sb.append("\t").append(numFakeRelinks).append(
+						" files relinked to incomplete extension .!ut");
 			}
 		}
 
@@ -510,18 +483,20 @@ public class TorrentImportInfo
 	@Override
 	public int compareTo(TorrentImportInfo o) {
 		int c = Long.compare(order, o.order);
-		if (c == 0) {
-			long completedOn0 = MapUtils.getMapLong(mapDMStateParam,
-					DownloadManagerState.PARAM_DOWNLOAD_COMPLETED_TIME, 0);
-			long completedOn1 = MapUtils.getMapLong(o.mapDMStateParam,
-					DownloadManagerState.PARAM_DOWNLOAD_COMPLETED_TIME, 0);
-			c = Long.compare(order, o.order);
-
-			if (c == 0) {
-				c = Base32.encode(infoHash).compareTo(Base32.encode(o.infoHash));
-			}
+		if (c != 0) {
+			return c;
 		}
-		return c;
+
+		long completedOn0 = MapUtils.getMapLong(mapDMStateParam,
+				DownloadManagerState.PARAM_DOWNLOAD_COMPLETED_TIME, 0);
+		long completedOn1 = MapUtils.getMapLong(o.mapDMStateParam,
+				DownloadManagerState.PARAM_DOWNLOAD_COMPLETED_TIME, 0);
+		c = Long.compare(completedOn0, completedOn1);
+		if (c != 0) {
+			return c;
+		}
+
+		return Base32.encode(infoHash).compareTo(Base32.encode(o.infoHash));
 	}
 
 	private void processTorrent(File _torrentFile, Map<String, Object> map) {
@@ -620,7 +595,6 @@ public class TorrentImportInfo
 		long completedOn = MapUtils.getMapLong(map, ResumeConstants.COMPLETED_ON,
 				0);
 		if (completedOn > 0 && order < 0) {
-			// TODO: when not complete, this value might be created on..
 			mapDMStateParam.put(DownloadManagerState.PARAM_DOWNLOAD_COMPLETED_TIME,
 					completedOn * 1000);
 		}
@@ -650,7 +624,7 @@ public class TorrentImportInfo
 			 * Note:
 			 * BiglyBT Stores blocks in "resume"->"data"->"blocks" in active directory
 			 * The format is a map, with the key as the pieceNumber (String), and value
-			 * a List of block numbers (List<Number>)
+			 * a List of block numbers (List&lt;Number>)
 			 * <br>
 			 * {@link DownloadManagerState#setResumeData(Map)} takes a map which has one key of "data"
 			 * <br>
@@ -686,9 +660,10 @@ public class TorrentImportInfo
 					mapPieceBlocks.put(key, haveBlocks);
 
 					if (rowBytes.length != 4 + blockBitsLength) {
-						logWarnings.append("'blocks' length expected to be "
-								+ (4 + blockBitsLength) + ", but was " + rowBytes.length
-								+ " for piece #" + key + "\n");
+						logWarnings.append("'blocks' length expected to be ").append(
+								4 + blockBitsLength).append(", but was ").append(
+										rowBytes.length).append(" for piece #").append(key).append(
+												"\n");
 					}
 
 					int curBlockNo = 0;
@@ -721,17 +696,11 @@ public class TorrentImportInfo
 							boolean hashedBitSet = hashedPiecesBits == null ? haveBitSet
 									: (hashedPiecesBits[pieceBitsPos]
 											& (byte) (1 << bitPos)) != 0;
-							/*
-							 * private static final byte PIECE_NOT_DONE         = 0;
-							 * private static final byte PIECE_DONE             = 1;
-							 * private static final byte PIECE_RECHECK_REQUIRED = 2;
-							 * private static final byte PIECE_STARTED          = 3;
-							 */
-							pieceStates[pieceNo] = (byte) (haveBitSet
+							pieceStates[pieceNo] = haveBitSet
 									? hashedBitSet ? PIECE_DONE : PIECE_RECHECK_REQUIRED
 									: mapPieceBlocks != null
 											&& mapPieceBlocks.containsKey("" + pieceNo)
-													? PIECE_STARTED : PIECE_NOT_DONE);
+													? PIECE_STARTED : PIECE_NOT_DONE;
 							pieceNo++;
 							if (pieceNo == numPieces) {
 								break;
@@ -743,74 +712,6 @@ public class TorrentImportInfo
 					logWarnings.append(Debug.getNestedExceptionMessageAndStack(t));
 				}
 			}
-
-			if (pieceStates != null || mapPieceBlocks != null) {
-				long remainingFromLastPiece = 0;
-				filesBytesDownloaded = new ArrayList<>();
-				for (TOTorrentFile file : torrentFiles) {
-					int first = file.getFirstPieceNumber();
-					int last = file.getLastPieceNumber();
-					long length = file.getLength();
-
-					long lengthUnprocessed = length;
-					long bytesDownloaded = 0;
-					for (int i = first; i <= last; i++) {
-						if (pieceStates[i] == PIECE_DONE) {
-							if (i == first && remainingFromLastPiece > 0) {
-								bytesDownloaded += remainingFromLastPiece;
-							} else if (i == last) {
-								bytesDownloaded += lengthUnprocessed;
-							} else {
-								bytesDownloaded += pieceLength;
-							}
-
-							if (i == first) {
-								remainingFromLastPiece = 0;
-							}
-							if (i == last) {
-								remainingFromLastPiece = pieceLength - lengthUnprocessed;
-							}
-						} /* else if (mapPieceBlocks != null) {
-							int fileStartsAtBlock = i == first
-									? (int) ((pieceLength - remainingFromLastPiece)
-											/ DiskManager.BLOCK_SIZE)
-									: 0;
-							int fileEndsAtBlock = i == last
-									&& lengthUnprocessed < DiskManager.BLOCK_SIZE
-											? (int) (lengthUnprocessed / DiskManager.BLOCK_SIZE)
-											: numBlocksPerPiece - 1;
-							List<Long> blocks = mapPieceBlocks.get("" + i);
-							for (Long blockNo : blocks) {
-								if (blockNo >= fileStartsAtBlock
-										&& blockNo <= fileEndsAtBlock) {
-									long pieceBytesSpent = blockNo * DiskManager.BLOCK_SIZE;
-									long blockBytesDownloaded = DiskManager.BLOCK_SIZE;
-									
-									if (blockNo == fileStartsAtBlock) {
-										long remainingBlockBytes = remainingFromLastPiece % DiskManager.BLOCK_SIZE;
-										blockBytesDownloaded = remainingBlockBytes;
-									} 
-									if (blockNo == fileEndsAtBlock) {
-										long bytesNotOurs = 
-										blockBytesDownloaded -= bytesNotOurs;
-									}
-									bytesDownloaded += blockBytesDownloaded;
-								}
-							}
-							}*/
-
-						if (i == first && remainingFromLastPiece > 0) {
-							lengthUnprocessed -= remainingFromLastPiece;
-						} else {
-							// doesn't matter if it ends up being negative.. we'd be exiting
-							// loop and not using it.
-							lengthUnprocessed -= pieceLength;
-						}
-
-					}
-					filesBytesDownloaded.add(bytesDownloaded);
-				}
-			}
 		}
 
 		String tagName = MapUtils.getMapString(map, ResumeConstants.LABEL, "");
@@ -820,8 +721,8 @@ public class TorrentImportInfo
 
 		List labels = MapUtils.getMapList(map, ResumeConstants.LABELS,
 				Collections.emptyList());
-		for (int i = 0, labelsSize = labels.size(); i < labelsSize; i++) {
-			String label = Utils.objectToString(labels.get(i));
+		for (Object value : labels) {
+			String label = Utils.objectToString(value);
 			if (label == null || label.equals(tagName)) {
 				continue;
 			}
@@ -837,10 +738,14 @@ public class TorrentImportInfo
 
 		long lastActiveSecsAgo = MapUtils.getMapLong(map,
 				ResumeConstants.LAST_ACTIVE, 0);
-		// Value doesn't make sends.  xx seconds ago from what? maybe "time"?
-		//if (lastActiveSecsAgo > 0) {
-		//	mapDMStateAttr.put(DownloadManagerState.PARAM_DOWNLOAD_LAST_ACTIVE_TIME, lastActiveSecsAgo * 1000);
-		//}
+		if (lastActiveSecsAgo > 0) {
+			long time = MapUtils.getMapLong(map, ResumeConstants.TIME, 0);
+			if (time > 0) {
+				long lastactiveTimeMS = (time * 1000) + (lastActiveSecsAgo * 1000);
+				mapDMStateAttr.put(DownloadManagerState.PARAM_DOWNLOAD_LAST_ACTIVE_TIME,
+						lastactiveTimeMS);
+			}
+		}
 
 		long maxPeers = MapUtils.getMapLong(map, ResumeConstants.MAX_CONNECTIONS,
 				0);
@@ -946,7 +851,7 @@ public class TorrentImportInfo
 				startMode = DownloadManager.STATE_STOPPED;
 				String dlError = MapUtils.getMapString(map, ResumeConstants.DL_ERROR,
 						"");
-				logWarnings.append("Unknown startmode of " + startMode);
+				logWarnings.append("Unknown startmode of ").append(startMode);
 				if (dlError.length() > 0) {
 					logWarnings.append(". DL Error Message: ").append(dlError);
 				}
@@ -973,7 +878,6 @@ public class TorrentImportInfo
 					logWarnings.append(
 							"Unknown file retarget: index 0 not number, but ").append(
 									o0).append("\n");
-					;
 					continue;
 				}
 				Object o1 = listTarget.get(1);
@@ -1030,25 +934,112 @@ public class TorrentImportInfo
 		}
 
 		// Check all files now that we have the target links
-		// TODO: What about the option "Append .!ut to incomplete files"?
 
+		havePieceBytes = 0;
 		if (torrentFiles != null) {
 			Map<Integer, String> mapNotFound = new LinkedHashMap<>();
 			Map<String, String> mapRelinked = new LinkedHashMap<>();
+			filesBytesDownloaded = new ArrayList<>();
 
+			long pieceLength = torrent.getPieceLength();
+			long runningTorrentSize = 0;
+
+			haveBlockBytes = 0;
 			for (int i = 0, filesLength = torrentFiles.length; i < filesLength; i++) {
 				TOTorrentFile file = torrentFiles[i];
 
-				// uT doesn't create the file until a byte in the piece is downloaded
-				boolean needFile = false;
+				long fileLength = file.getLength();
 				int start = file.getFirstPieceNumber();
 				int end = file.getLastPieceNumber();
+
+				long fileStartsAtPos = runningTorrentSize;
+				long fileStartsAtPiece = fileStartsAtPos / pieceLength;
+				if (fileStartsAtPiece != start) {
+					logWarnings.append("File #").append(i).append(
+							" inconsistent piece start ").append(" (rs=").append(
+									runningTorrentSize).append(";pl=").append(pieceLength).append(
+											")\n");
+				}
+				long fileStartsAtPiecePos = fileStartsAtPos % pieceLength;
+				long fileStartPieceBytes = Math.min(fileLength,
+						pieceLength - fileStartsAtPiecePos);
+
+				long fileStartsAtBlockNo = fileStartsAtPiecePos
+						/ DiskManager.BLOCK_SIZE;
+				long fileStartsAtBlockPos = fileStartsAtPiecePos
+						% DiskManager.BLOCK_SIZE;
+				long fileStartBlockBytes = Math.min(fileLength,
+						DiskManager.BLOCK_SIZE - fileStartsAtBlockPos);
+
+				runningTorrentSize += fileLength;
+				long fileEndsAtPos = runningTorrentSize - 1;
+				long fileEndsAtPiece = fileEndsAtPos / pieceLength;
+				if (fileEndsAtPiece != end) {
+					logWarnings.append("File #").append(i).append(
+							" inconsistent piece end ").append(end).append(" vs ").append(
+									fileEndsAtPiece).append(" (rs=").append(
+											runningTorrentSize).append(";pl=").append(
+													pieceLength).append(")\n");
+				}
+				long fileEndsAtPiecePos = fileEndsAtPos % pieceLength;
+				long fileEndPieceBytes = Math.min(fileLength, fileEndsAtPiecePos + 1);
+				long fileEndsAtBlockNo = fileEndsAtPiecePos / DiskManager.BLOCK_SIZE;
+				long fileEndsAtBlockPos = fileEndsAtPiecePos % DiskManager.BLOCK_SIZE;
+				long fileEndBlockBytes = Math.min(fileLength, fileEndsAtBlockPos + 1);
+
+				// uT doesn't create the file until a byte in the piece is downloaded
+				boolean needFile = false;
+				long pieceBytesDownloaded = 0;
 				for (int j = start; j <= end; j++) {
-					if (pieceStates[j] != PIECE_NOT_DONE) {
-						needFile = true;
-						break;
+					switch (pieceStates[j]) {
+						case PIECE_STARTED: {
+							if (mapPieceBlocks != null) {
+								List<Long> listHaveBlocks = mapPieceBlocks.get("" + j);
+								if (listHaveBlocks != null && listHaveBlocks.size() > 0) {
+									if (j == start) {
+										for (Long haveBlockNo : listHaveBlocks) {
+											if (haveBlockNo >= fileStartsAtBlockNo
+													&& (fileEndsAtPiece > start
+															|| haveBlockNo <= fileEndsAtBlockNo)) {
+												//System.out.println(i + ", start piece " + j + ", block " + haveBlockNo + "; fileStartsAtBlockNo=" + fileStartsAtBlockNo + ";" + ((haveBlockNo == fileStartsAtBlockNo) ? fileStartBlockBytes : DiskManager.BLOCK_SIZE));
+												haveBlockBytes += (haveBlockNo == fileStartsAtBlockNo)
+														? fileStartBlockBytes : DiskManager.BLOCK_SIZE;
+												needFile = true;
+											}
+										}
+									} else if (j == end) {
+										for (Long haveBlockNo : listHaveBlocks) {
+											if (haveBlockNo <= fileEndsAtBlockNo
+													&& (fileStartsAtPiece < end
+															|| haveBlockNo >= fileStartsAtBlockNo)) {
+												//System.out.println(i + ", end piece " + j + ", block " + haveBlockNo + "; fileEndsAtBlockNo=" + fileEndsAtBlockNo + ";" + ((haveBlockNo == fileEndsAtBlockNo) ? fileEndBlockBytes : DiskManager.BLOCK_SIZE));
+												haveBlockBytes += (haveBlockNo == fileEndsAtBlockNo)
+														? fileEndBlockBytes : DiskManager.BLOCK_SIZE;
+												needFile = true;
+											}
+										}
+									} else {
+										// all blocks are fully ours
+										haveBlockBytes += listHaveBlocks.size()
+												* DiskManager.BLOCK_SIZE;
+										needFile = true;
+									}
+									break;
+								}
+							}
+							// explicitly fall through if there's no blocks for piece
+						}
+						case PIECE_DONE: {
+							needFile = true;
+							pieceBytesDownloaded += (j == start) ? fileStartPieceBytes
+									: (j == end) ? fileEndPieceBytes : pieceLength;
+							break;
+						}
 					}
 				}
+				havePieceBytes += pieceBytesDownloaded;
+				filesBytesDownloaded.add(PARTIAL_PIECES_IN_DL_BYTES
+						? pieceBytesDownloaded + haveBlockBytes : pieceBytesDownloaded);
 
 				if (!needFile) {
 					continue;
@@ -1062,7 +1053,7 @@ public class TorrentImportInfo
 				if (new File(dirSavePath, relativePath).isFile()) {
 					continue;
 				}
-				File foundFile = findFile(relativePath, dirSavePath, file.getLength());
+				File foundFile = findFile(relativePath, dirSavePath, fileLength);
 				if (foundFile != null && foundFile.isFile()) {
 					String existingFileLink = fileLinks.put(i,
 							foundFile.getAbsolutePath());
@@ -1337,6 +1328,9 @@ public class TorrentImportInfo
 		}
 
 		// BiglyBT requires non-skipped files exist (and probably skipped files that share a piece with non-skipped)
+		// If uT had pre-allocate space turned off (default), then we switch BiglyBT to BCFG_ENABLE_INCREMENTAL_FILE_CREATION
+		// But even that requires a 0 byte file minimum, otherwise it will do a full recheck on start.
+		boolean dataAlreadyAllocated = true;
 		for (int i = 0; i < fileInfos.length; i++) {
 			DiskManagerFileInfo fileInfo = fileInfos[i];
 			if (fileInfo.isSkipped()) {
@@ -1374,7 +1368,11 @@ public class TorrentImportInfo
 			}
 			File file = fileInfo.getFile(true);
 			if (!file.exists()) {
-				// TODO: We may have to allocate the full file, depending on BiglyBT's settings
+				if (importer.settingsImportInfo.preAllocSpace) {
+					dataAlreadyAllocated = false;
+					break;
+				}
+
 				try {
 					if (!file.getParentFile().isDirectory()) {
 						file.getParentFile().mkdirs();
@@ -1383,10 +1381,11 @@ public class TorrentImportInfo
 				} catch (IOException e) {
 					System.err.println("create new file: " + file);
 					e.printStackTrace();
+					dataAlreadyAllocated = false;
 				}
 			}
 		}
-		dm.setDataAlreadyAllocated(true);
+		dm.setDataAlreadyAllocated(dataAlreadyAllocated);
 
 		// Can't set these until after DM is added to GM
 		//dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
