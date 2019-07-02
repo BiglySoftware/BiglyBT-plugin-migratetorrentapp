@@ -140,8 +140,7 @@ public class MigrateViewEventListener
 		composite.setLayout(gridLayout);
 
 		Label label = new Label(composite, SWT.BORDER);
-		label.setText(
-				"ALPHA RELEASE -- Only Analyzes.  Does not migrate or modify anything.");
+		label.setText("ALPHA RELEASE");
 		gridData = new GridData(GridData.FILL_HORIZONTAL);
 		gridData.horizontalSpan = 2;
 		FontUtils.setFontHeight(label, 12, SWT.BOLD);
@@ -255,30 +254,28 @@ public class MigrateViewEventListener
 		StringBuilder sb = new StringBuilder();
 		String nl = "\n╏ ";
 		String s;
-		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
+		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
+		sb.append(importer.listTorrentsToImport.size()).append(
+				" torrents to be imported. Any torrents already in BiglyBT will be skipped.").append(
+						nl);
 		boolean first = true;
 		for (TorrentImportInfo importInfo : importer.listTorrentsToImport) {
 			if (onlyWarningTorrents && !importInfo.hasWarnings()) {
 				continue;
 			}
-			if (first) {
-				first = false;
-			} else {
-				sb.append(
-						"\n┠╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(
-								nl).append(nl);
-			}
+			sb.append("\n┠╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(
+					nl).append(nl);
 			s = importInfo.toDebugString(showPrivate).replaceAll("\n", nl);
 			sb.append(s);
 		}
-		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
+		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
 
-		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
+		sb.append("┎╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌").append(nl);
 		s = importer.settingsImportInfo.toDebugString(showPrivate).replaceAll("\n",
 				nl);
 		sb.append(s);
 
-		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
+		sb.append("\n└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n\n");
 
 		sb.append("Tags\n");
 		sb.append("----\n");
