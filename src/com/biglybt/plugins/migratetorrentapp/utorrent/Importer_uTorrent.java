@@ -41,6 +41,8 @@ import com.biglybt.util.StringCompareUtils;
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.logging.LoggerChannel;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+
 /**
  * TODO: RSS Feeds
  */
@@ -86,21 +88,21 @@ public class Importer_uTorrent
 		super(pi);
 		this.configModelInfo = configModelInfo;
 		String[] dirsSingle = configModelInfo.paramDataDirsSingle.getValue().split(
-				"\n");
+				"[\\r\\n]+");
 		for (String dir : dirsSingle) {
 			if (!dir.isEmpty()) {
 				mapAdditionalDataDirs.put(dir, false);
 			}
 		}
 		String[] dirsRecursive = configModelInfo.paramDataDirsRecursive.getValue().split(
-				"\n");
+				"[\\r\\n]+");
 		for (String dir : dirsRecursive) {
 			if (!dir.isEmpty()) {
 				mapAdditionalDataDirs.put(dir, true);
 			}
 		}
 		String[] dirsTorrents = configModelInfo.paramTorrentDirs.getValue().split(
-				"\n");
+				"[\\r\\n]+");
 		for (String dir : dirsTorrents) {
 			if (!dir.isEmpty()) {
 				listAdditionalTorrentDirs.add(dir);
@@ -116,7 +118,7 @@ public class Importer_uTorrent
 			isOSCaseSensitive = true;
 		}
 		String[] folderReplacements = configModelInfo.paramFolderReplacements.getValue().split(
-				"\n");
+				"[\\r\\n]+");
 		for (String folderReplacement : folderReplacements) {
 			if (!isOSCaseSensitive) {
 				folderReplacement = folderReplacement.toLowerCase();
@@ -171,7 +173,8 @@ public class Importer_uTorrent
 		if (hasRunProgramEnabled || settingsImportInfo.hasRunProgram) {
 			//addRequiredPlugin(PLUGINID_AZEXEC);
 			settingsImportInfo.logWarnings.append(
-					"uT has 'Run Program' settings.  Please install Command Runner (azexec) plugin.\n");
+					"uT has 'Run Program' settings.  Please install Command Runner (azexec) plugin.").append(
+							NL);
 		}
 
 		Collections.sort(listTorrentsToImport);
@@ -190,17 +193,17 @@ public class Importer_uTorrent
 		StringBuilder sbMigrateLog = new StringBuilder();
 
 		sbMigrateLog.append("Migration started at ").append(
-				TimeFormatter.format(System.currentTimeMillis())).append("\n");
+				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
 
 		try {
 			StringBuilder results = settingsImportInfo.migrate();
 			if (results.length() > 0) {
-				sbMigrateLog.append("Config Migration Log:\n");
-				sbMigrateLog.append(results).append("\n");
+				sbMigrateLog.append("Config Migration Log:").append(NL);
+				sbMigrateLog.append(results).append(NL);
 			}
 		} catch (Throwable t) {
 			sbMigrateLog.append("Error Migrating Settings: ").append(
-					Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+					Debug.getNestedExceptionMessageAndStack(t)).append(NL);
 		}
 
 		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
@@ -271,9 +274,9 @@ public class Importer_uTorrent
 
 				} catch (Throwable e) {
 					sbMigrateLog.append("Error Migrating Tag: ").append(
-							Debug.getNestedExceptionMessageAndStack(e)).append("\n");
+							Debug.getNestedExceptionMessageAndStack(e)).append(NL);
 					sbMigrateLog.append("\t").append(
-							tagToAddInfo.toDebugString().replaceAll("\n", "\n\t"));
+							tagToAddInfo.toDebugString().replaceAll(NL, NL + "\t"));
 				}
 			}
 		}
@@ -282,27 +285,42 @@ public class Importer_uTorrent
 			try {
 				StringBuilder results = importInfo.migrate();
 				if (results.length() > 0) {
+					sbMigrateLog.append(NL);
 					sbMigrateLog.append("Torrent ").append(
 							Utils.wrapString(importInfo.getName())).append(
-									"Migration Log:\n");
-					sbMigrateLog.append(results).append("\n\t");
+									"Migration Log:").append(NL);
+					sbMigrateLog.append(results).append(NL).append("\t");
 					sbMigrateLog.append(
-							importInfo.toDebugString().replaceAll("\n", "\n\t"));
-					sbMigrateLog.append("\n");
+							importInfo.toDebugString().replaceAll(NL, NL + "\t"));
+					sbMigrateLog.append(NL);
 				}
 			} catch (Throwable t) {
 				sbMigrateLog.append("Error Migrating Torrent: ").append(
-						Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+						Debug.getNestedExceptionMessageAndStack(t)).append(NL);
 				sbMigrateLog.append("\t").append(
-						importInfo.toDebugString().replaceAll("\n", "\n\t"));
-				sbMigrateLog.append("\n");
+						importInfo.toDebugString().replaceAll(NL, NL + "\t"));
+				sbMigrateLog.append(NL);
 			}
 		}
 
+		sbMigrateLog.append(NL).append("Migration ended at ").append(
+				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
+
 		File logFile = new File(new File(pi.getUtilities().getUserDir(), "logs"),
-				"uT_Migrate_" + (System.currentTimeMillis() / 1000) + ".log");
+				"uT_Migrate_Public_" + (System.currentTimeMillis() / 1000) + ".log");
+		File logFileHidden = new File(
+				new File(pi.getUtilities().getUserDir(), "logs"),
+				"uT_Migrate_Private_" + (System.currentTimeMillis() / 1000) + ".log");
+
+		sbMigrateLog.append("This log was written with secrets to ").append(
+				logFile.getAbsolutePath()).append(NL);
+		sbMigrateLog.append("This log was written with secrets hidden to ").append(
+				logFileHidden.getAbsolutePath()).append(NL);
+
 		String migrateLog = sbMigrateLog.toString();
+
 		FileUtil.writeStringAsFile(logFile, migrateLog);
+		FileUtil.writeStringAsFile(logFileHidden, Utils.hidePrivate(migrateLog));
 
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {

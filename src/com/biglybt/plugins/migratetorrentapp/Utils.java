@@ -30,6 +30,8 @@ import com.biglybt.core.util.RandomUtils;
 
 public class Utils
 {
+	public static final String NL = System.lineSeparator();
+
 	public static final String[] PRIVWRAP = {
 		"<private>",
 		"</private>"

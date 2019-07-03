@@ -46,8 +46,11 @@ import com.biglybt.util.MapUtils;
 
 import com.biglybt.pif.torrent.TorrentAttribute;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+
 /**
  * TODO: Do we do simple torrents correctly (save path, renames, etc)
+ * TODO: If we find all the files in the same relative path, we should change the dirSavePath and remove links
  */
 public class TorrentImportInfo
 	implements Comparable<TorrentImportInfo>
@@ -327,25 +330,25 @@ public class TorrentImportInfo
 		}
 
 		sb.append(Utils.wrapString(getName()));
-		sb.append('\n');
+		sb.append(NL);
 
 		if (hasWarnings()) {
-			sb.append("\nWarnings:\n").append(logWarnings).append("\n");
+			sb.append("\nWarnings:").append(NL).append(logWarnings).append(NL);
 		}
 
 		if (obtainedFrom != null && obtainedFrom.length() > 0) {
 			sb.append("Obtained from ").append(Utils.wrapString(obtainedFrom)).append(
-					"\n");
+					NL);
 		}
 
-		sb.append("Save Path: ").append(Utils.wrapString(dirSavePath)).append("\n");
+		sb.append("Save Path: ").append(Utils.wrapString(dirSavePath)).append(NL);
 
 		long addedOn = MapUtils.getMapLong(mapDMStateParam,
 				DownloadManagerState.PARAM_DOWNLOAD_ADDED_TIME, 0);
 		if (addedOn > 0) {
 			sb.append("Added On ");
 			sb.append(DisplayFormatters.formatDate(addedOn));
-			sb.append('\n');
+			sb.append(NL);
 		}
 
 		if (torrent != null) {
@@ -353,7 +356,7 @@ public class TorrentImportInfo
 		}
 
 		if (tags.size() == 0) {
-			sb.append("No Tags\n");
+			sb.append("No Tags").append(NL);
 		} else {
 			int numTags = 0;
 			StringBuilder sbTags = new StringBuilder();
@@ -370,7 +373,7 @@ public class TorrentImportInfo
 			sb.append(numTags);
 			sb.append(" Tags: ");
 			sb.append(sbTags);
-			sb.append("\n");
+			sb.append(NL);
 		}
 
 		if (order < 0) {
@@ -379,7 +382,7 @@ public class TorrentImportInfo
 			if (completedOn > 0) {
 				sb.append("Completed On ");
 				sb.append(DisplayFormatters.formatDate(completedOn));
-				sb.append('\n');
+				sb.append(NL);
 			}
 
 		} else {
@@ -402,33 +405,34 @@ public class TorrentImportInfo
 				}
 				sb.append("Pieces: ").append(numDonePieces).append(" done, ").append(
 						numPiecesNeedRecheck).append(" need recheck, ").append(
-								numStartedPieces).append(" partial\n");
+								numStartedPieces).append(" partial").append(NL);
 			}
 
-			sb.append(downloadedBytes).append(" bytes downloaded\n");
-			sb.append(havePieceBytes).append(" bytes in fully downloaded pieces\n");
+			sb.append(downloadedBytes).append(" bytes downloaded").append(NL);
+			sb.append(havePieceBytes).append(
+					" bytes in fully downloaded pieces").append(NL);
 			if (haveBlockBytes > 0) {
 				sb.append(havePieceBytes + haveBlockBytes).append(
-						" bytes in fully downloaded pieces and blocks\n");
+						" bytes in fully downloaded pieces and blocks").append(NL);
 			}
 			if (downloadedBytes != havePieceBytes + haveBlockBytes) {
-				sb.append("Piece & Block Info does not match downloaded results!\n");
+				sb.append(
+						"Piece & Block Info does not match downloaded results!").append(NL);
 			}
 		}
 
 		if (downSpeed > 0) {
 			sb.append("Limit download speed to ").append(
 					DisplayFormatters.formatByteCountToKiBEtcPerSec(downSpeed)).append(
-							"\n");
+							NL);
 		}
 		if (upSpeed > 0) {
 			sb.append("Limit upload speed to ").append(
-					DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(
-							"\n");
+					DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(NL);
 		}
 
 		if (mapDMStateParam.size() > 0) {
-			sb.append("States: \n");
+			sb.append("States: ").append(NL);
 			for (String key : mapDMStateParam.keySet()) {
 				Object val = mapDMStateParam.get(key);
 				sb.append('\t').append(key).append(": ");
@@ -437,11 +441,11 @@ public class TorrentImportInfo
 				} else {
 					sb.append(val);
 				}
-				sb.append('\n');
+				sb.append(NL);
 			}
 		}
 		if (mapDMStateAttr.size() > 0) {
-			sb.append("Attributes: \n");
+			sb.append("Attributes: ").append(NL);
 			for (String key : mapDMStateAttr.keySet()) {
 				Object val = mapDMStateAttr.get(key);
 				sb.append('\t').append(key).append(": ");
@@ -450,7 +454,7 @@ public class TorrentImportInfo
 				} else {
 					sb.append(val);
 				}
-				sb.append('\n');
+				sb.append(NL);
 			}
 		}
 
@@ -458,10 +462,10 @@ public class TorrentImportInfo
 				TimeFormatter.formatColon(downloadingForSecs));
 		sb.append(", Seeding for ").append(
 				TimeFormatter.formatColon(seedingForSecs));
-		sb.append("\n");
+		sb.append(NL);
 
 		if (fileLinks.size() > 0) {
-			sb.append(fileLinks.size()).append(" linked files\n");
+			sb.append(fileLinks.size()).append(" linked files").append(NL);
 			int numFakeRelinks = 0;
 			for (Integer index : fileLinks.keySet()) {
 				String absoluteFile = fileLinks.get(index);
@@ -470,17 +474,17 @@ public class TorrentImportInfo
 					numFakeRelinks++;
 				} else {
 					sb.append("\tIndex ").append(index).append(": ").append(
-							Utils.wrapString(absoluteFile)).append("\n");
+							Utils.wrapString(absoluteFile)).append(NL);
 				}
 			}
 			if (numFakeRelinks > 0) {
 				sb.append("\t").append(numFakeRelinks).append(
-						" files relinked to incomplete extension .!ut");
+						" files relinked to incomplete extension .!ut").append(NL);
 			}
 		}
 
 		if (hasInfo()) {
-			sb.append("\nInfo:\n").append(logInfo);
+			sb.append("\nInfo:").append(NL).append(logInfo);
 		}
 
 		return sb.toString();
@@ -533,7 +537,7 @@ public class TorrentImportInfo
 						Utils.objectToString(_torrentFile.getAbsolutePath())));
 				logInfo.append(", but found as ");
 				logInfo.append(Utils.wrapString(file.getAbsolutePath()));
-				logInfo.append("\n");
+				logInfo.append(NL);
 				_torrentFile = file;
 			} else {
 				for (String torrentDir : importer.listAdditionalTorrentDirs) {
@@ -544,7 +548,7 @@ public class TorrentImportInfo
 								Utils.objectToString(_torrentFile.getAbsolutePath())));
 						logInfo.append(", but found at ");
 						logInfo.append(Utils.wrapString(newTorrentFile.getAbsolutePath()));
-						logInfo.append("\n");
+						logInfo.append(NL);
 
 						_torrentFile = newTorrentFile;
 					}
@@ -568,7 +572,8 @@ public class TorrentImportInfo
 								"path.utf-8"));
 						if (hasUTF8Path) {
 							logInfo.append(
-									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly\n");
+									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly").append(
+											NL);
 							existing_map.remove("encoding");
 							File tempTorrentFile = File.createTempFile("Migrate_", ".torrent",
 									AETemporaryFileHandler.getTempDirectory());
@@ -591,9 +596,9 @@ public class TorrentImportInfo
 			s = Utils.wrapSubString(s, _torrentFile.getName());
 			logWarnings.append("Error reading ");
 			logWarnings.append(Utils.wrapString(absolutePath));
-			logWarnings.append(": \n\t");
+			logWarnings.append(": ").append(NL).append("\t");
 			logWarnings.append(s);
-			logWarnings.append('\n');
+			logWarnings.append(NL);
 		}
 
 		order = MapUtils.getMapLong(map, ResumeConstants.ORDER, 0);
@@ -674,7 +679,7 @@ public class TorrentImportInfo
 						logWarnings.append("blocks[").append(blockArrayIndex).append(
 								"] = ");
 						logWarnings.append(ByteFormatter.nicePrint(rowBytes, true)).append(
-								"\n");
+								NL);
 					}
 					String key = "" + pieceNo;
 
@@ -685,7 +690,7 @@ public class TorrentImportInfo
 						logWarnings.append("'blocks' length expected to be ").append(
 								4 + blockBitsLength).append(", but was ").append(
 										rowBytes.length).append(" for piece #").append(key).append(
-												"\n");
+												NL);
 					}
 
 					int curBlockNo = 0;
@@ -800,7 +805,7 @@ public class TorrentImportInfo
 					logWarnings.append(
 							"Bad Peer: " + ByteFormatter.nicePrint(peer6, true)).append(
 									"; ").append(
-											Debug.getNestedExceptionMessageAndStack(e)).append("\n");
+											Debug.getNestedExceptionMessageAndStack(e)).append(NL);
 				}
 			}
 		}
@@ -842,7 +847,7 @@ public class TorrentImportInfo
 			 */
 			execOnComplete = execOnComplete.replaceAll("\\s*%M", "");
 			if (execOnComplete.contains("%S")) {
-				logWarnings.append("%S not supported for exec-on-complete\n");
+				logWarnings.append("%S not supported for exec-on-complete").append(NL);
 			}
 		} else {
 			execOnComplete = null;
@@ -878,7 +883,7 @@ public class TorrentImportInfo
 				if (dlError.length() > 0) {
 					logWarnings.append(". DL Error Message: ").append(dlError);
 				}
-				logWarnings.append("\n");
+				logWarnings.append(NL);
 				break;
 			}
 		}
@@ -893,14 +898,14 @@ public class TorrentImportInfo
 				List listTarget = (List) target;
 				if (listTarget.size() != 2) {
 					logWarnings.append("Unknown file retarget: ").append(
-							listTargets.toString()).append("\n");
+							listTargets.toString()).append(NL);
 					continue;
 				}
 				Object o0 = listTarget.get(0);
 				if (!(o0 instanceof Number)) {
 					logWarnings.append(
 							"Unknown file retarget: index 0 not number, but ").append(
-									o0).append("\n");
+									o0).append(NL);
 					continue;
 				}
 				Object o1 = listTarget.get(1);
@@ -908,7 +913,7 @@ public class TorrentImportInfo
 				if (newPath == null) {
 					logWarnings.append(
 							"Unknown file retarget: index 1 not String, but ").append(
-									o1).append("\n");
+									o1).append(NL);
 					continue;
 				}
 				int fileIndex = ((Number) o0).intValue();
@@ -981,7 +986,7 @@ public class TorrentImportInfo
 					logWarnings.append("File #").append(i).append(
 							" inconsistent piece start ").append(" (rs=").append(
 									runningTorrentSize).append(";pl=").append(pieceLength).append(
-											")\n");
+											")").append(NL);
 				}
 				long fileStartsAtPiecePos = fileStartsAtPos % pieceLength;
 				long fileStartPieceBytes = Math.min(fileLength,
@@ -1002,7 +1007,7 @@ public class TorrentImportInfo
 							" inconsistent piece end ").append(end).append(" vs ").append(
 									fileEndsAtPiece).append(" (rs=").append(
 											runningTorrentSize).append(";pl=").append(
-													pieceLength).append(")\n");
+													pieceLength).append(")").append(NL);
 				}
 				long fileEndsAtPiecePos = fileEndsAtPos % pieceLength;
 				long fileEndPieceBytes = Math.min(fileLength, fileEndsAtPiecePos + 1);
@@ -1104,7 +1109,7 @@ public class TorrentImportInfo
 						logWarnings.append(Utils.wrapString(mapNotFound.get(idx)));
 					}
 				}
-				logWarnings.append('\n');
+				logWarnings.append(NL);
 			}
 			if (mapRelinked.size() > 0) {
 				logInfo.append("Relinked files: ");
@@ -1123,7 +1128,7 @@ public class TorrentImportInfo
 						logInfo.append(Utils.wrapString(mapRelinked.get(idx)));
 					}
 				}
-				logInfo.append('\n');
+				logInfo.append(NL);
 			}
 		}
 
@@ -1183,13 +1188,13 @@ public class TorrentImportInfo
 
 	public StringBuilder migrate() {
 		StringBuilder sbMigrateLog = new StringBuilder();
-		
+
 		if (!canImport()) {
 			sbMigrateLog.append("Skipping Torrent ").append(
 					Utils.wrapString(getName())).append(
 							", .torrent file not found for ").append(
 									Utils.wrapString(
-											new HashWrapper(infoHash).toBase32String())).append("\n");
+											new HashWrapper(infoHash).toBase32String())).append(NL);
 			return sbMigrateLog;
 		}
 
@@ -1199,7 +1204,7 @@ public class TorrentImportInfo
 			sbMigrateLog.append(Utils.wrapString(getName()));
 			sbMigrateLog.append(". Already exists in BiglyBT as ");
 			sbMigrateLog.append(Utils.wrapString(existingDM.getDisplayName())).append(
-					"\n");
+					NL);
 			return sbMigrateLog;
 		}
 
@@ -1222,7 +1227,7 @@ public class TorrentImportInfo
 		if (dm != null) {
 			postInitDM(dm);
 		}
-		
+
 		return sbMigrateLog;
 	}
 
@@ -1367,7 +1372,7 @@ public class TorrentImportInfo
 				sbMigrateLog.append(
 						"Per-file downloaded bytes stats may not be correct and torrent will probably do a re-check when started. ");
 				sbMigrateLog.append(Debug.getNestedExceptionMessageAndStack(e)).append(
-						"\n");
+						NL);
 			}
 		}
 
@@ -1459,7 +1464,7 @@ public class TorrentImportInfo
 			} catch (Throwable e) {
 				sbMigrateLog.append("Error setting trackers for torrent. ");
 				sbMigrateLog.append(Debug.getNestedExceptionMessageAndStack(e)).append(
-						"\n");
+						NL);
 			}
 		}
 

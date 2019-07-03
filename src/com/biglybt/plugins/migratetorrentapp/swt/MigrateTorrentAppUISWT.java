@@ -97,7 +97,11 @@ public class MigrateTorrentAppUISWT
 			String open = dialog.open();
 			if (open != null && open.length() > 0) {
 				String value = param.getValue();
-				param.setValue(value + "\n" + open);
+				if (value.isEmpty()) {
+					param.setValue(open);
+				} else {
+					param.setValue(value + System.lineSeparator() + open);
+				}
 			}
 		});
 	}

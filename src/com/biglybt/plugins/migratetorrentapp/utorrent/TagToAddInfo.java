@@ -25,6 +25,8 @@ import java.util.List;
 import com.biglybt.core.tag.Tag;
 import com.biglybt.plugins.migratetorrentapp.Utils;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+
 public class TagToAddInfo
 {
 	public String initialSaveFolder;
@@ -60,15 +62,15 @@ public class TagToAddInfo
 			sb.append(", ").append(items.size()).append(" torrents assigned");
 		}
 		if (initialSaveFolder != null) {
-			sb.append("\n\tInitial Save Folder: ").append(
+			sb.append(NL).append("\tInitial Save Folder: ").append(
 					Utils.wrapString(initialSaveFolder));
 		}
 		if (maxUp != 0 || maxDown != 0) {
-			sb.append("\n\tMax Up: ").append(maxUp).append("; Max Down: ").append(
+			sb.append(NL).append("\tMax Up: ").append(maxUp).append("; Max Down: ").append(
 					maxDown);
 		}
 		if (constraint != null) {
-			sb.append("\n\t").append(constraint.replaceAll("\n", "\n\t"));
+			sb.append(NL).append("\t").append(constraint.replaceAll(NL, NL + "\t"));
 		}
 
 		return sb.toString();

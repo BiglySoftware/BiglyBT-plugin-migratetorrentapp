@@ -54,6 +54,9 @@ import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.ui.config.Parameter;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+import static com.biglybt.plugins.migratetorrentapp.Utils.hidePrivate;
+
 public class MigrateViewEventListener
 	implements UISWTViewEventListener, MigrateListener
 {
@@ -197,8 +200,8 @@ public class MigrateViewEventListener
 				"migrateapp.button.copyAnalysisToClip.info");
 
 		btnCopy.addListener(SWT.Selection, event -> {
-			StringBuilder sb = buildAnalysisResults(importer, false, false);
-			ClipboardCopy.copyToClipBoard(sb.toString());
+			StringBuilder sb = buildAnalysisResults(importer, false);
+			ClipboardCopy.copyToClipBoard(hidePrivate(sb.toString()));
 		});
 
 		Button btnShowOnlyWarnings = new Button(cButtonArea, SWT.CHECK);
@@ -207,7 +210,7 @@ public class MigrateViewEventListener
 				"migrateapp.checkbox.onlyWwarnings");
 		btnShowOnlyWarnings.addListener(SWT.Selection, event -> {
 			showOnlyWarningTorrents = btnShowOnlyWarnings.getSelection();
-			StringBuilder sb = buildAnalysisResults(importer, true,
+			StringBuilder sb = buildAnalysisResults(importer,
 					showOnlyWarningTorrents);
 			resultTextArea.setText(sb.toString());
 			recalcScrolledComposite();
@@ -235,8 +238,7 @@ public class MigrateViewEventListener
 	}
 
 	public void analysisComplete(Importer_uTorrent importer) {
-		StringBuilder sb = buildAnalysisResults(importer, true,
-				showOnlyWarningTorrents);
+		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents);
 		Utils.execSWTThread(() -> {
 			buildResultsArea(importer);
 			resultTextArea.setText(sb.toString());
@@ -251,9 +253,9 @@ public class MigrateViewEventListener
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
-			boolean showPrivate, boolean onlyWarningTorrents) {
+			boolean onlyWarningTorrents) {
 		StringBuilder sb = new StringBuilder();
-		String nl = "\n│ ";
+		String nl = NL + "│ ";
 		String s;
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		sb.append(importer.listTorrentsToImport.size()).append(
@@ -263,24 +265,28 @@ public class MigrateViewEventListener
 			if (onlyWarningTorrents && !importInfo.hasWarnings()) {
 				continue;
 			}
-			sb.append("\n├─────────────────────────────────────────────────").append(
-					nl).append(nl);
-			s = importInfo.toDebugString(showPrivate).replaceAll("\n", nl);
+			sb.append(NL);
+			sb.append("├─────────────────────────────────────────────────");
+			sb.append(nl).append(nl);
+			s = importInfo.toDebugString().replaceAll(NL, nl);
 			sb.append(s);
 		}
-		sb.append("\n└─────────────────────────────────────────────────\n\n");
+		sb.append(NL);
+		sb.append("└─────────────────────────────────────────────────");
+		sb.append(NL).append(NL);
 
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
-		s = importer.settingsImportInfo.toDebugString(showPrivate).replaceAll("\n",
-				nl);
+		s = importer.settingsImportInfo.toDebugString().replaceAll(NL, nl);
 		sb.append(s);
 
-		sb.append("\n└──────────────────────────────────────────────────\n\n");
+		sb.append(NL);
+		sb.append("└──────────────────────────────────────────────────");
+		sb.append(NL).append(NL);
 
-		sb.append("Tags\n");
-		sb.append("----\n");
+		sb.append("Tags").append(NL);
+		sb.append("----").append(NL);
 		for (TagToAddInfo value : importer.mapTagsToAdd.values()) {
-			sb.append(value.toDebugString()).append("\n");
+			sb.append(value.toDebugString()).append(NL);
 		}
 		return sb;
 	}

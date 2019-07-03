@@ -20,6 +20,8 @@ package com.biglybt.plugins.migratetorrentapp.utorrent;
 
 import com.biglybt.ui.common.RememberedDecisionsManager;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+
 public class RememberedDecisionConfig
 	implements ConfigMigrateItem
 {
@@ -48,7 +50,7 @@ public class RememberedDecisionConfig
 		StringBuilder sb = new StringBuilder();
 		sb.append(utKey).append("(").append(utValue).append(
 				") -> RememberID:").append(rememberID).append("(").append(value).append(
-						")\n");
+						")").append(NL);
 		return sb;
 	}
 

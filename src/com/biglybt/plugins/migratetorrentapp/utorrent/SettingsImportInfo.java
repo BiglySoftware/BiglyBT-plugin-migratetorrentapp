@@ -40,6 +40,7 @@ import static com.biglybt.core.config.ConfigKeys.Connection.*;
 import static com.biglybt.core.config.ConfigKeys.File.*;
 import static com.biglybt.core.config.ConfigKeys.Tracker.*;
 import static com.biglybt.core.config.ConfigKeys.Transfer.*;
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
 
 public class SettingsImportInfo
 {
@@ -147,7 +148,7 @@ public class SettingsImportInfo
 					SettingsConstants.DIR_LAST, "");
 			if (!lastDir.isEmpty() && new File(lastDir).isDirectory()) {
 				item = new DirectConfigMigrate(SettingsConstants.DIR_LAST,
-						"previous.filter.dir.data", lastDir);
+						"previous.filter.dir.data", lastDir, true);
 				listConfigMigrations.add(item);
 			}
 
@@ -196,12 +197,14 @@ public class SettingsImportInfo
 				if (o instanceof String) {
 					if (utSettings.containsKey((o))) {
 						if (first) {
+							logWarnings.append(NL);
 							logWarnings.append(
-									"\nThe following advanced settings were not migrated:\n");
+									"The following advanced settings were not migrated:").append(
+											NL);
 							first = false;
 						}
 						logWarnings.append("\t").append(o).append(" : ").append(
-								utSettings.get(o)).append("\n");
+								utSettings.get(o)).append(NL);
 					}
 				}
 			} catch (IllegalAccessException e) {
@@ -267,7 +270,8 @@ public class SettingsImportInfo
 				logWarnings.append(
 						"BiglyBT doesn't have a direct equivalent for Queueing->Seeding Goals->Min number of available seeds. ").append(
 								"BiglyBT does have Ignore Rules that are limited based on min seeds.  ").append(
-										"There's also the AutoPilot plugin which adds more auto-stop options.\n");
+										"There's also the AutoPilot plugin which adds more auto-stop options.").append(
+												NL);
 			}
 
 			int limitUlRateTo = MapUtils.getMapInt(utSettings,
@@ -276,11 +280,13 @@ public class SettingsImportInfo
 				logWarnings.append(
 						"BiglyBT doesn't have a direct equivalent for auto-stopping torrents based on seeding goals. ").append(
 								"BiglyBT does have Ignore Rules that fullfill your needs. ").append(
-										"There's also the AutoPilot plugin which adds more auto-stop options.\n");
+										"There's also the AutoPilot plugin which adds more auto-stop options.").append(
+												NL);
 			} else {
 				logWarnings.append(
 						"BiglyBT doesn't have a direct equivalent for altering a torrent's upload rate based on seeding goals. ").append(
-								"You might be able to achieve your goals via Tagging logic, but that is beyond the scope of this migration tool.\n");
+								"You might be able to achieve your goals via Tagging logic, but that is beyond the scope of this migration tool.").append(
+										NL);
 			}
 		}
 	}
@@ -290,14 +296,18 @@ public class SettingsImportInfo
 				TransferCap.MULTI_DAY_TRANSFER_LIMIT_EN_DEF);
 		if (enableTransferCap) {
 			logWarnings.append(
-					"Migration of Transfer Cap settings not currently supported.\n");
+					"Migration of Transfer Cap settings not currently supported.").append(
+							NL);
 			logWarnings.append(
-					"To manually create Transfer Caps in BiglyBT, see https://github.com/BiglySoftware/BiglyBT/wiki/Speed-Limit-Scheduler#Network_Limits\n");
+					"To manually create Transfer Caps in BiglyBT, see https://github.com/BiglySoftware/BiglyBT/wiki/Speed-Limit-Scheduler#Network_Limits").append(
+							NL);
 			logWarnings.append(
-					"For example, if you want a monthly cap of 200G, in Tools->Speed Limits->Schedule and Settings, you'd need the following line:\n");
-			logWarnings.append("\tnet_limit monthly total=200G\n");
+					"For example, if you want a monthly cap of 200G, in Tools->Speed Limits->Schedule and Settings, you'd need the following line:").append(
+							NL);
+			logWarnings.append("\tnet_limit monthly total=200G").append(NL);
 			logWarnings.append(
-					"Make sure your stats start day is set to the right day in Tools->Options->Statistics->Long Term\n\n");
+					"Make sure your stats start day is set to the right day in Tools->Options->Statistics->Long Term").append(
+							NL).append(NL);
 		}
 	}
 
@@ -517,7 +527,8 @@ public class SettingsImportInfo
 				BitTorrent.ENABLE_ALTRUISTIC_DEF);
 		if (altruistic) {
 			logWarnings.append(
-					"BiglyBT doesn't support altruistic mode, however you may want to look at the Share Ratio Maximizer plugin\n");
+					"BiglyBT doesn't support altruistic mode, however you may want to look at the Share Ratio Maximizer plugin").append(
+							NL);
 		}
 
 		///
@@ -667,7 +678,7 @@ public class SettingsImportInfo
 				listConfigMigrations.add(item);
 			} else {
 				logWarnings.append("Invalid default save folder of ").append(
-						Utils.wrapString(savePath)).append("\n");
+						Utils.wrapString(savePath)).append(NL);
 			}
 		}
 
@@ -686,13 +697,14 @@ public class SettingsImportInfo
 			listConfigMigrations.add(item);
 		} else if (moveOnComplete) {
 			logWarnings.append("Invalid default save folder of ").append(
-					Utils.wrapString(moveOnCompletePath)).append("\n");
+					Utils.wrapString(moveOnCompletePath)).append(NL);
 		}
 		if (moveOnComplete) {
 			boolean addLabel = getFlag(Directories.DIR_COMPLETED_ADD_LABEL, false);
 			if (addLabel) {
 				logWarnings.append(
-						"'Append the torrent's label' option on 'Move completed downloads' is not currently supported by BiglyBT.\n");
+						"'Append the torrent's label' option on 'Move completed downloads' is not currently supported by BiglyBT.").append(
+								NL);
 			}
 
 			boolean moveOnlyIfDefault = getFlag(
@@ -722,7 +734,7 @@ public class SettingsImportInfo
 						saveTorrentFileDir);
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
-						Utils.wrapString(saveTorrentFileDir)).append('\n');
+						Utils.wrapString(saveTorrentFileDir)).append(NL);
 			}
 		}
 		listConfigMigrations.add(item);
@@ -744,7 +756,8 @@ public class SettingsImportInfo
 		listConfigMigrations.add(item);
 		if (moveTorrentFileOnComplete && !moveOnComplete) {
 			logWarnings.append(
-					"BiglyBT doesn't support moving .torrent files on completion without also moving data files on completion :(\n");
+					"BiglyBT doesn't support moving .torrent files on completion without also moving data files on completion :(").append(
+							NL);
 			// TODO: We could support this with tags
 		}
 
@@ -780,7 +793,8 @@ public class SettingsImportInfo
 				}
 
 				logInfo.append(
-						"You can also assign a tag to automatically imported torrents in Options->Files->Torrents\n");
+						"You can also assign a tag to automatically imported torrents in Options->Files->Torrents").append(
+								NL);
 				listConfigMigrations.add(item);
 			}
 
@@ -789,7 +803,7 @@ public class SettingsImportInfo
 				logWarnings.append(
 						"BiglyBT doesn't support deleting automatically imported .torrent files. Torrents auto-added from ").append(
 								Utils.wrapString(autoImportTorrentsDir)).append(
-										" will not be deleted.\n");
+										" will not be deleted.").append(NL);
 			}
 		}
 	}
@@ -852,7 +866,8 @@ public class SettingsImportInfo
 				UI_Settings.CONFIRM_EXIT_CRITICAL_SEEDER_DEF);
 		if (confimExitCriticalSeeder) {
 			logWarnings.append(
-					"BiglyBT does not support a warning dialog on exit when you are a critical seeder.\n");
+					"BiglyBT does not support a warning dialog on exit when you are a critical seeder.").append(
+							NL);
 		}
 
 		// UI Settings -> System Tray
@@ -966,7 +981,7 @@ public class SettingsImportInfo
 		byte[] schedule = MapUtils.getMapByteArray(utSettings,
 				Scheduler.SCHED_TABLE, new byte[0]);
 		if (schedule.length != 168) {
-			logWarnings.append("Schedule incomplete.  Ignoring\n");
+			logWarnings.append("Schedule incomplete.  Ignoring").append(NL);
 			return;
 		}
 
@@ -989,7 +1004,8 @@ public class SettingsImportInfo
 			boolean disableDHTonTurnOff = getFlag(Scheduler.SCHED_DIS_DHT, true);
 			if (disableDHTonTurnOff) {
 				logWarnings.append(
-						"BiglyBT does not support the uTorrent scheduler option to disable DHT when in 'Turn off' state.  DHT will remain on during those times.\n");
+						"BiglyBT does not support the uTorrent scheduler option to disable DHT when in 'Turn off' state.  DHT will remain on during those times.").append(
+								NL);
 			}
 		}
 
@@ -1073,7 +1089,7 @@ public class SettingsImportInfo
 				StringBuilder sbToday = sbTodays[i];
 				if (sbToday.length() > 0) {
 					if (sb.length() > 0) {
-						sb.append("\n || \n");
+						sb.append("\n || ").append(NL);
 					}
 					sb.append("(day_of_week == ").append(weekday);
 					String today = sbToday.toString().trim();
@@ -1113,31 +1129,23 @@ public class SettingsImportInfo
 		}
 	}
 
-	public String toDebugString(boolean showPrivate) {
-		String s = toDebugString();
-		if (showPrivate) {
-			return s;
-		}
-
-		return Utils.hidePrivate(s);
-	}
-
 	public String toDebugString() {
 		StringBuilder sb = new StringBuilder();
 		if (logWarnings.length() > 0) {
-			sb.append("\nConfig Warnings\n");
-			sb.append("--------\n");
-			sb.append(logWarnings).append("\n");
+			sb.append(NL).append("Config Warnings").append(NL);
+			sb.append("--------").append(NL);
+			sb.append(logWarnings).append(NL);
 		}
 
-		sb.append("Config Migrations\n");
-		sb.append("-----------------\n");
+		sb.append("Config Migrations").append(NL);
+		sb.append("-----------------").append(NL);
 		for (ConfigMigrateItem item : listConfigMigrations) {
 			sb.append(item.toDebugString());
 		}
 
 		if (logInfo.length() > 0) {
-			sb.append("\nInfo\n").append("----\n").append(logInfo).append("\n");
+			sb.append(NL).append("Info").append(NL).append("----").append(NL).append(
+					logInfo).append(NL);
 		}
 
 		return sb.toString();
@@ -1150,9 +1158,9 @@ public class SettingsImportInfo
 				item.migrate();
 			} catch (Throwable t) {
 				sbMigrateLog.append("Error Migrating Setting : ").append(
-						Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+						Debug.getNestedExceptionMessageAndStack(t)).append(NL);
 				sbMigrateLog.append("\t").append(
-						item.toDebugString().toString().replaceAll("\n", "\n\t"));
+						item.toDebugString().toString().replaceAll(NL, NL + "\t"));
 			}
 		}
 		return sbMigrateLog;

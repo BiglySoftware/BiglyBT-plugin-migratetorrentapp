@@ -24,6 +24,8 @@ import java.util.List;
 import com.biglybt.core.config.COConfigurationManager;
 import com.biglybt.plugins.migratetorrentapp.Utils;
 
+import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
+
 public class DirectConfigMigrate
 	implements ConfigMigrateItem
 {
@@ -57,7 +59,7 @@ public class DirectConfigMigrate
 			sb.append(isAlreadyValue() ? "[Same] " : "[Change] ");
 			if (utKey == null) {
 				sb.append("-> ").append(biglyKey).append("(").append(biglyValue).append(
-						")\n");
+						")").append(NL);
 			} else {
 				sb.append(utKey).append("(");
 				if (privateValues) {
@@ -73,7 +75,7 @@ public class DirectConfigMigrate
 				} else {
 					sb.append(biglyValue);
 				}
-				sb.append(")\n");
+				sb.append(")").append(NL);
 			}
 			return sb;
 		}
@@ -144,7 +146,7 @@ public class DirectConfigMigrate
 		StringBuilder sb = new StringBuilder();
 		boolean indent = configChanges.size() > 1;
 		if (indent) {
-			sb.append("Group of ").append(configChanges.size()).append('\n');
+			sb.append("Group of ").append(configChanges.size()).append(NL);
 		}
 		for (ConfigChange change : configChanges) {
 			if (indent) {
