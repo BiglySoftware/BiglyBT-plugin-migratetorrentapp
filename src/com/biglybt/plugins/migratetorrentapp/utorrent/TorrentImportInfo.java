@@ -56,6 +56,8 @@ public class TorrentImportInfo
 
 	private final Importer_uTorrent importer;
 
+	private final String torrentKey;
+
 	public ExtendedTorrent torrent;
 
 	public StringBuilder logWarnings = new StringBuilder();
@@ -200,9 +202,12 @@ public class TorrentImportInfo
 
 	private long havePieceBytes;
 
+	private String caption;
+
 	public TorrentImportInfo(Importer_uTorrent importer, File torrentFile,
-			Map<String, Object> map) {
+			String torrentKey, Map<String, Object> map) {
 		this.importer = importer;
+		this.torrentKey = torrentKey;
 		processTorrent(torrentFile, map);
 	}
 
@@ -286,7 +291,17 @@ public class TorrentImportInfo
 		}
 		return null;
 	}
-	
+
+	public String getName() {
+		if (caption != null) {
+			return caption;
+		}
+		if (torrent != null) {
+			return TorrentUtils.getLocalisedName(torrent);
+		}
+		return torrentKey;
+	}
+
 	public boolean canImport() {
 		return torrent != null;
 	}
@@ -311,12 +326,7 @@ public class TorrentImportInfo
 			sb.append("Complete ");
 		}
 
-		if (torrent == null) {
-			sb.append("<missing .torrent file>");
-		} else {
-			Utils.wrapString(sb, TorrentUtils.getLocalisedName(torrent));
-		}
-
+		sb.append(Utils.wrapString(getName()));
 		sb.append('\n');
 
 		if (hasWarnings()) {
@@ -488,8 +498,8 @@ public class TorrentImportInfo
 	public int compareTo(TorrentImportInfo o) {
 		boolean complete0 = order == -1;
 		boolean complete1 = o.order == -1;
-		
-		int c= Boolean.compare(complete0, complete1);
+
+		int c = Boolean.compare(complete0, complete1);
 		if (c != 0) {
 			return c;
 		}
@@ -544,7 +554,7 @@ public class TorrentImportInfo
 
 		try {
 			byte[] bytes = FileUtil.readFileAsByteArray(_torrentFile);
-			Map existing_map = BDecoder.decode(bytes);
+			Map<String, Object> existing_map = BDecoder.decode(bytes);
 			boolean hasEncoding = existing_map.containsKey("encoding");
 			if (hasEncoding) {
 				String encoding = MapUtils.getMapString(existing_map, "encoding", "");
@@ -599,7 +609,7 @@ public class TorrentImportInfo
 		importer.addTagFromMap(this, map, ResumeConstants.APP_TYPE,
 				"uTorrent: App Type");
 
-		String caption = MapUtils.getMapString(map, ResumeConstants.CAPTION, null);
+		caption = MapUtils.getMapString(map, ResumeConstants.CAPTION, null);
 		if (caption != null) {
 			mapDMStateAttr.put(DownloadManagerState.AT_DISPLAY_NAME, caption);
 		}
@@ -787,9 +797,10 @@ public class TorrentImportInfo
 							((port[0] & 0xff)) << 8 | (port[1] & 0xff));
 					peers.add(socketAddress);
 				} catch (Throwable e) {
-					System.err.println(
-							"Bad Peer: " + ByteFormatter.nicePrint(peer6, true));
-					e.printStackTrace();
+					logWarnings.append(
+							"Bad Peer: " + ByteFormatter.nicePrint(peer6, true)).append(
+									"; ").append(
+											Debug.getNestedExceptionMessageAndStack(e)).append("\n");
 				}
 			}
 		}
@@ -1170,16 +1181,28 @@ public class TorrentImportInfo
 		//System.out.println(localisedName);
 	}
 
-	public void migrate() {
+	public StringBuilder migrate() {
+		StringBuilder sbMigrateLog = new StringBuilder();
+		
 		if (!canImport()) {
-			return;
+			sbMigrateLog.append("Skipping Torrent ").append(
+					Utils.wrapString(getName())).append(
+							", .torrent file not found for ").append(
+									Utils.wrapString(
+											new HashWrapper(infoHash).toBase32String())).append("\n");
+			return sbMigrateLog;
 		}
+
 		DownloadManager existingDM = importer.gm.getDownloadManager(torrent);
 		if (existingDM != null) {
-			System.err.println(Utils.wrapString(existingDM.getDisplayName())
-					+ " already exists in BiglyBT. Skipping");
-			return;
+			sbMigrateLog.append("Skipping Migrating Torrent ");
+			sbMigrateLog.append(Utils.wrapString(getName()));
+			sbMigrateLog.append(". Already exists in BiglyBT as ");
+			sbMigrateLog.append(Utils.wrapString(existingDM.getDisplayName())).append(
+					"\n");
+			return sbMigrateLog;
 		}
+
 		startMode = DownloadManager.STATE_STOPPED; // TODO: Remove me or add option
 		File fileDirSavePath = new File(dirSavePath);
 		DownloadManager dm = importer.gm.addDownloadManager(
@@ -1188,7 +1211,7 @@ public class TorrentImportInfo
 				new DownloadManagerInitialisationAdapter() {
 					@Override
 					public void initialised(DownloadManager dm, boolean for_seeding) {
-						initDM(dm);
+						initDM(dm, sbMigrateLog);
 					}
 
 					@Override
@@ -1199,9 +1222,11 @@ public class TorrentImportInfo
 		if (dm != null) {
 			postInitDM(dm);
 		}
+		
+		return sbMigrateLog;
 	}
 
-	private void initDM(DownloadManager dm) {
+	private void initDM(DownloadManager dm, StringBuilder sbMigrateLog) {
 		TOTorrent torrent = dm.getTorrent();
 		TorrentUtils.setObtainedFrom(torrent, obtainedFrom);
 
@@ -1338,7 +1363,11 @@ public class TorrentImportInfo
 				setFileLinks.setAccessible(true);
 				setFileLinks.invoke(dm);
 			} catch (Exception e) {
-				e.printStackTrace();
+				sbMigrateLog.append("Error calling setFileLinks. ");
+				sbMigrateLog.append(
+						"Per-file downloaded bytes stats may not be correct and torrent will probably do a re-check when started. ");
+				sbMigrateLog.append(Debug.getNestedExceptionMessageAndStack(e)).append(
+						"\n");
 			}
 		}
 
@@ -1428,8 +1457,9 @@ public class TorrentImportInfo
 				TorrentUtils.writeToFile(torrent);
 
 			} catch (Throwable e) {
-
-				Debug.out(e);
+				sbMigrateLog.append("Error setting trackers for torrent. ");
+				sbMigrateLog.append(Debug.getNestedExceptionMessageAndStack(e)).append(
+						"\n");
 			}
 		}
 

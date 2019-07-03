@@ -245,8 +245,9 @@ public class MigrateViewEventListener
 	}
 
 	@Override
-	public void migrationComplete() {
-
+	public void migrationComplete(String migrateLog) {
+		pi.getUIManager().showTextMessage("migrateapp.results.title", null,
+				migrateLog);
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,

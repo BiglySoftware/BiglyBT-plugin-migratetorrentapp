@@ -30,6 +30,7 @@ import com.biglybt.core.config.ConfigKeys.*;
 import com.biglybt.core.config.impl.ConfigurationDefaults;
 import com.biglybt.core.util.BDecoder;
 import com.biglybt.core.util.Constants;
+import com.biglybt.core.util.Debug;
 import com.biglybt.plugins.migratetorrentapp.Utils;
 import com.biglybt.plugins.migratetorrentapp.utorrent.SettingsConstants.Connection;
 import com.biglybt.plugins.migratetorrentapp.utorrent.SettingsConstants.*;
@@ -763,7 +764,8 @@ public class SettingsImportInfo
 				while (true) {
 					key = SCFG_PREFIX_WATCH_TORRENT_FOLDER_PATH
 							+ (i == 0 ? "" : (" " + i));
-					String existingWatchPath = COConfigurationManager.getStringParameter(key);
+					String existingWatchPath = COConfigurationManager.getStringParameter(
+							key);
 					if (existingWatchPath.isEmpty()) {
 						break;
 					}
@@ -1141,9 +1143,18 @@ public class SettingsImportInfo
 		return sb.toString();
 	}
 
-	public void migrate() {
+	public StringBuilder migrate() {
+		StringBuilder sbMigrateLog = new StringBuilder();
 		for (ConfigMigrateItem item : listConfigMigrations) {
-			item.migrate();
+			try {
+				item.migrate();
+			} catch (Throwable t) {
+				sbMigrateLog.append("Error Migrating Setting : ").append(
+						Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+				sbMigrateLog.append("\t").append(
+						item.toDebugString().toString().replaceAll("\n", "\n\t"));
+			}
 		}
+		return sbMigrateLog;
 	}
 }

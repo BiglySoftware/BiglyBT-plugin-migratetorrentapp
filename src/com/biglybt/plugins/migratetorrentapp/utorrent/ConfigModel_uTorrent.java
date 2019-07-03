@@ -39,7 +39,7 @@ public class ConfigModel_uTorrent
 	{
 		void analysisComplete(Importer_uTorrent importer_uTorrent);
 
-		void migrationComplete();
+		void migrationComplete(String migrateLog);
 	}
 
 	private final PluginInterface pi;
@@ -231,7 +231,7 @@ public class ConfigModel_uTorrent
 				}
 
 				@Override
-				public void migrationComplete() {
+				public void migrationComplete(String migrateLog) {
 
 				}
 			};
@@ -245,19 +245,20 @@ public class ConfigModel_uTorrent
 		actionMigrate.setEnabled(false);
 		actionMigrate.addConfigParameterListener(param -> {
 			actionMigrate.setEnabled(false);
-			importer.migrate();
 			MigrateListener l = new MigrateListener() {
 				@Override
 				public void analysisComplete(Importer_uTorrent importer) {
 				}
 
 				@Override
-				public void migrationComplete() {
+				public void migrationComplete(String migrateLog) {
 					removeListener(this);
 					actionMigrate.setEnabled(true);
 				}
 			};
 			addListener(l);
+
+			importer.migrate();
 		});
 
 	}

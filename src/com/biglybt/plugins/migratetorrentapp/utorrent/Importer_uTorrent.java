@@ -30,17 +30,16 @@ import com.biglybt.core.global.GlobalManager;
 import com.biglybt.core.tag.*;
 import com.biglybt.core.tag.TagFeatureProperties.TagProperty;
 import com.biglybt.core.torrent.TOTorrentException;
-import com.biglybt.core.util.BDecoder;
-import com.biglybt.core.util.Constants;
-import com.biglybt.core.util.TorrentUtils;
+import com.biglybt.core.util.*;
 import com.biglybt.core.util.TorrentUtils.ExtendedTorrent;
 import com.biglybt.plugins.migratetorrentapp.Importer;
+import com.biglybt.plugins.migratetorrentapp.Utils;
 import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent.MigrateListener;
 import com.biglybt.util.MapUtils;
+import com.biglybt.util.StringCompareUtils;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.logging.LoggerChannel;
-import com.biglybt.util.StringCompareUtils;
 
 /**
  * TODO: RSS Feeds
@@ -184,7 +183,21 @@ public class Importer_uTorrent
 	}
 
 	public void migrate() {
-		settingsImportInfo.migrate();
+		StringBuilder sbMigrateLog = new StringBuilder();
+
+		sbMigrateLog.append("Migration started at ").append(
+				TimeFormatter.format(System.currentTimeMillis())).append("\n");
+
+		try {
+			StringBuilder results = settingsImportInfo.migrate();
+			if (results.length() > 0) {
+				sbMigrateLog.append("Config Migration Log:\n");
+				sbMigrateLog.append(results).append("\n");
+			}
+		} catch (Throwable t) {
+			sbMigrateLog.append("Error Migrating Settings: ").append(
+					Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+		}
 
 		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
 				TagType.TT_DOWNLOAD_MANUAL);
@@ -252,17 +265,38 @@ public class Importer_uTorrent
 
 					tagToAddInfo.tag = tag;
 
-				} catch (TagException e) {
-					// TODO: Report
-					e.printStackTrace();
+				} catch (Throwable e) {
+					sbMigrateLog.append("Error Migrating Tag: ").append(
+							Debug.getNestedExceptionMessageAndStack(e)).append("\n");
+					sbMigrateLog.append("\t").append(
+							tagToAddInfo.toDebugString().replaceAll("\n", "\n\t"));
 				}
 			}
 		}
 
 		for (TorrentImportInfo importInfo : listTorrentsToImport) {
-			if (importInfo.torrentFile != null) {
-				importInfo.migrate();
+			try {
+				StringBuilder results = importInfo.migrate();
+				if (results.length() > 0) {
+					sbMigrateLog.append("Torrent ").append(
+							Utils.wrapString(importInfo.getName())).append(
+									"Migration Log:\n");
+					sbMigrateLog.append(results).append("\n\t");
+					sbMigrateLog.append(importInfo.toDebugString().replaceAll("\n", "\n\t"));
+					sbMigrateLog.append("\n");
+				}
+			} catch (Throwable t) {
+				sbMigrateLog.append("Error Migrating Torrent: ").append(
+						Debug.getNestedExceptionMessageAndStack(t)).append("\n");
+				sbMigrateLog.append("\t").append(
+						importInfo.toDebugString().replaceAll("\n", "\n\t"));
+				sbMigrateLog.append("\n");
 			}
+		}
+
+		MigrateListener[] listeners = configModelInfo.getListeners();
+		for (MigrateListener l : listeners) {
+			l.migrationComplete(sbMigrateLog.toString());
 		}
 	}
 
@@ -289,7 +323,7 @@ public class Importer_uTorrent
 								context);
 					}
 					TorrentImportInfo importInfo = new TorrentImportInfo(this,
-							torrentFile, map);
+							torrentFile, context, map);
 					if (importInfo.execOnComplete != null) {
 						hasRunProgramEnabled = true;
 					}
