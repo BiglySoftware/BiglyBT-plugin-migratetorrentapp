@@ -888,6 +888,23 @@ public class TorrentImportInfo
 			}
 		}
 
+		byte[] suffixFlags = MapUtils.getMapByteArray(map, ResumeConstants.SUFFIXES,
+				null);
+		// Not sure if uT can have the "append .!ut" disabled but still have torrents with suffix flag bits on (and still have .!ut appended)
+		// BiglyBT can.  In case uT can, we don't rely on the settings.dat flag, but let the bits indicate if we enabled suffix
+		boolean anySuffixesEnabled = false;
+		if (suffixFlags != null) {
+			for (byte suffixFlag : suffixFlags) {
+				if (suffixFlag != 0) {
+					anySuffixesEnabled = true;
+					break;
+				}
+			}
+		}
+		if (anySuffixesEnabled) {
+			mapDMStateAttr.put(DownloadManagerState.AT_INCOMP_FILE_SUFFIX, ".!ut");
+		}
+
 		List listTargets = MapUtils.getMapList(map, ResumeConstants.TARGETS,
 				Collections.emptyList());
 		if (listTargets.size() > 0) {
@@ -927,36 +944,23 @@ public class TorrentImportInfo
 			}
 		}
 
-		byte[] suffixFlags = MapUtils.getMapByteArray(map, ResumeConstants.SUFFIXES,
-				null);
-		if (suffixFlags != null && torrentFiles != null) {
-			// Not sure if uT can have the "append .!ut" disabled but still have torrents with suffix flag bits on (and still have .!ut appended)
-			// BiglyBT can.  In case uT can, we don't rely on the settings.dat flag, but let the bits indicate if we enabled suffix
-			boolean anyEnabled = false;
+		if (anySuffixesEnabled && torrentFiles != null) {
+			int pos = 0;
 			for (byte suffixFlag : suffixFlags) {
-				if (suffixFlag != 0) {
-					anyEnabled = true;
-					break;
-				}
-			}
-			if (anyEnabled) {
-				mapDMStateAttr.put(DownloadManagerState.AT_INCOMP_FILE_SUFFIX, ".!ut");
-				int pos = 0;
-				for (byte suffixFlag : suffixFlags) {
-					for (int bitPos = 0; bitPos < 8; bitPos++) {
-						boolean isBitSet = (suffixFlag & (byte) (1 << bitPos)) != 0;
-						if (isBitSet) {
-							String s = fileLinks.get(pos);
-							if (s == null) {
-								s = new File(dirSavePath, torrentFiles[pos].getRelativePath()
-										+ ".!ut").getAbsolutePath();
-							} else {
-								s += ".!ut";
-							}
-							fileLinks.put(pos, s);
+				for (int bitPos = 0; bitPos < 8; bitPos++) {
+					boolean isBitSet = (suffixFlag & (byte) (1 << bitPos)) != 0;
+					if (isBitSet) {
+						String s = fileLinks.get(pos);
+						if (s == null) {
+							s = new File(dirSavePath, torrentFiles[pos].getRelativePath()
+									+ ".!ut").getAbsolutePath();
+						} else {
+							s += ".!ut";
 						}
-						pos++;
+						File file = findFile(s, dirSavePath, torrentFiles[pos].getLength());
+						fileLinks.put(pos, file.getAbsolutePath());
 					}
+					pos++;
 				}
 			}
 		}
