@@ -183,6 +183,10 @@ public class Importer_uTorrent
 	}
 
 	public void migrate() {
+		pi.getUtilities().createThread("Migrate uT", () -> migrateNow());
+	}
+
+	private void migrateNow() {
 		StringBuilder sbMigrateLog = new StringBuilder();
 
 		sbMigrateLog.append("Migration started at ").append(
@@ -282,7 +286,8 @@ public class Importer_uTorrent
 							Utils.wrapString(importInfo.getName())).append(
 									"Migration Log:\n");
 					sbMigrateLog.append(results).append("\n\t");
-					sbMigrateLog.append(importInfo.toDebugString().replaceAll("\n", "\n\t"));
+					sbMigrateLog.append(
+							importInfo.toDebugString().replaceAll("\n", "\n\t"));
 					sbMigrateLog.append("\n");
 				}
 			} catch (Throwable t) {
@@ -294,9 +299,14 @@ public class Importer_uTorrent
 			}
 		}
 
+		File logFile = new File(new File(pi.getUtilities().getUserDir(), "logs"),
+				"uT_Migrate_" + (System.currentTimeMillis() / 1000) + ".log");
+		String migrateLog = sbMigrateLog.toString();
+		FileUtil.writeStringAsFile(logFile, migrateLog);
+
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
-			l.migrationComplete(sbMigrateLog.toString());
+			l.migrationComplete(migrateLog);
 		}
 	}
 
