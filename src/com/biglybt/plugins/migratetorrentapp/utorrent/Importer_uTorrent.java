@@ -261,7 +261,7 @@ public class Importer_uTorrent
 
 		for (TorrentImportInfo importInfo : listTorrentsToImport) {
 			if (importInfo.torrentFile != null) {
-				importInfo.addDownloadManager();
+				importInfo.migrate();
 			}
 		}
 	}

@@ -256,7 +256,7 @@ public class MigrateViewEventListener
 		String s;
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		sb.append(importer.listTorrentsToImport.size()).append(
-				" torrents to be imported. Any torrents already in BiglyBT will be skipped.").append(
+				" torrents found in uT. Any torrents already in BiglyBT will be skipped.").append(
 						nl);
 		for (TorrentImportInfo importInfo : importer.listTorrentsToImport) {
 			if (onlyWarningTorrents && !importInfo.hasWarnings()) {

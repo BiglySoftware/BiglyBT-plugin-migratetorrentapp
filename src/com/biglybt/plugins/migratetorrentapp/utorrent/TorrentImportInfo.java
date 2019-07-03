@@ -286,6 +286,10 @@ public class TorrentImportInfo
 		}
 		return null;
 	}
+	
+	public boolean canImport() {
+		return torrent != null;
+	}
 
 	public String toDebugString(boolean showPrivate) {
 		String s = toDebugString();
@@ -909,7 +913,7 @@ public class TorrentImportInfo
 
 		byte[] suffixFlags = MapUtils.getMapByteArray(map, ResumeConstants.SUFFIXES,
 				null);
-		if (suffixFlags != null) {
+		if (suffixFlags != null && torrentFiles != null) {
 			// Not sure if uT can have the "append .!ut" disabled but still have torrents with suffix flag bits on (and still have .!ut appended)
 			// BiglyBT can.  In case uT can, we don't rely on the settings.dat flag, but let the bits indicate if we enabled suffix
 			boolean anyEnabled = false;
@@ -1166,7 +1170,10 @@ public class TorrentImportInfo
 		//System.out.println(localisedName);
 	}
 
-	public void addDownloadManager() {
+	public void migrate() {
+		if (!canImport()) {
+			return;
+		}
 		DownloadManager existingDM = importer.gm.getDownloadManager(torrent);
 		if (existingDM != null) {
 			System.err.println(Utils.wrapString(existingDM.getDisplayName())
