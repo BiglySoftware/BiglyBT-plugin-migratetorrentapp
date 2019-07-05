@@ -21,6 +21,7 @@ package com.biglybt.plugins.migratetorrentapp.utorrent;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.*;
 
@@ -29,6 +30,7 @@ import com.biglybt.core.config.ConfigKeys;
 import com.biglybt.core.config.ConfigKeys.*;
 import com.biglybt.core.config.impl.ConfigurationDefaults;
 import com.biglybt.core.util.BDecoder;
+import com.biglybt.core.util.ByteFormatter;
 import com.biglybt.core.util.Constants;
 import com.biglybt.core.util.Debug;
 import com.biglybt.plugins.migratetorrentapp.Utils;
@@ -96,6 +98,7 @@ public class SettingsImportInfo
 					if (dir == null) {
 						continue;
 					}
+					dir = importer.replaceFolders(dir);
 					if (dir.endsWith(File.separator)) {
 						dir = dir.substring(0, dir.length() - 1);
 					}
@@ -113,11 +116,19 @@ public class SettingsImportInfo
 							ConfigKeys.File.SCFG_SAVE_TO_LIST);
 					listDirHist.addAll(existing);
 
-					item = new DirectConfigMigrate().addPrivate(
+					add(new DirectConfigMigrate().addPrivate(
 							SettingsConstants.ADD_DIALOG_HIST, utListDirHistStrings,
-							ConfigKeys.File.SCFG_SAVE_TO_LIST, listDirHist);
-					listConfigMigrations.add(item);
+							ConfigKeys.File.SCFG_SAVE_TO_LIST, listDirHist));
 				}
+			}
+
+			///
+
+			String lastDir = importer.replaceFolders(
+					MapUtils.getMapString(utSettings, SettingsConstants.DIR_LAST, ""));
+			if (!lastDir.isEmpty() && new File(lastDir).isDirectory()) {
+				add(new DirectConfigMigrate(SettingsConstants.DIR_LAST,
+						"previous.filter.dir.data", lastDir, true));
 			}
 
 			///
@@ -142,53 +153,49 @@ public class SettingsImportInfo
 
 			processPreferencesLabel();
 
-			///
-
-			String lastDir = MapUtils.getMapString(utSettings,
-					SettingsConstants.DIR_LAST, "");
-			if (!lastDir.isEmpty() && new File(lastDir).isDirectory()) {
-				item = new DirectConfigMigrate(SettingsConstants.DIR_LAST,
-						"previous.filter.dir.data", lastDir, true);
-				listConfigMigrations.add(item);
-			}
-
-			///
-
-			hasRunProgram = !MapUtils.getMapString(utSettings,
-					advRunProgram.FINISH_CMD, "").isEmpty()
-					|| !MapUtils.getMapString(utSettings, advRunProgram.STATE_CMD,
-							"").isEmpty();
-
-			/// 
-
-			String persistLabels = MapUtils.getMapString(utSettings,
-					SettingsConstants.GUI_PERSISTENT_LABELS, "");
-			String[] persistLabelsArray = persistLabels.split("\\|");
-			for (String label : persistLabelsArray) {
-				if (label.isEmpty()) {
-					continue;
-				}
-				TagToAddInfo tagToAddInfo = importer.addTagIgnoreGroup(null, label,
-						"uTorrent Persistent Label");
-				tagToAddInfo.showInSidebar = true;
-			}
-
 			processPreferencesAdvanced();
 
 		} catch (Throwable t) {
-			t.printStackTrace();
-			importer.loggerChannel.log(t);
+			logWarnings.append("Error Analyzing Settings : ").append(
+					Debug.getNestedExceptionMessageAndStack(t)).append(NL);
+			logWarnings.append("\t").append(
+					toDebugString().replaceAll(NL, NL + "\t"));
 		}
 
-		System.out.println(
-				"DirectConfigMigrate.count = " + DirectConfigMigrate.count);
-		System.out.println(
-				"RememberedDecisionConfig  = " + RememberedDecisionConfig.count);
-		System.out.println(
-				"listConfigMigrations.size()=" + listConfigMigrations.size());
+		int totalMigrations = DirectConfigMigrate.count
+				+ RememberedDecisionConfig.count;
+		if (totalMigrations != listConfigMigrations.size()) {
+			logWarnings.append("Config Migration count mismatch ").append(
+					"DirectConfigMigrate.count = ").append(DirectConfigMigrate.count);
+			logWarnings.append("; RememberedDecisionConfig  = ").append(
+					RememberedDecisionConfig.count);
+			logWarnings.append("; listConfigMigrations.size()=").append(
+					listConfigMigrations.size()).append(NL);
+		}
 	}
 
 	private void processPreferencesAdvanced() {
+		hasRunProgram = !MapUtils.getMapString(utSettings, advRunProgram.FINISH_CMD,
+				"").isEmpty()
+				|| !MapUtils.getMapString(utSettings, advRunProgram.STATE_CMD,
+						"").isEmpty();
+
+		/// 
+
+		String persistLabels = MapUtils.getMapString(utSettings,
+				SettingsConstants.GUI_PERSISTENT_LABELS, "");
+		String[] persistLabelsArray = persistLabels.split("\\|");
+		for (String label : persistLabelsArray) {
+			if (label.isEmpty()) {
+				continue;
+			}
+			TagToAddInfo tagToAddInfo = importer.addTagIgnoreGroup(null, label,
+					"uTorrent Persistent Label");
+			tagToAddInfo.showInSidebar = true;
+		}
+
+		///
+
 		Field[] fields = adv.class.getFields();
 		boolean first = true;
 		for (Field field : fields) {
@@ -203,8 +210,22 @@ public class SettingsImportInfo
 											NL);
 							first = false;
 						}
-						logWarnings.append("\t").append(o).append(" : ").append(
-								utSettings.get(o)).append(NL);
+						Object val = utSettings.get(o);
+						if (val instanceof byte[]) {
+							if ((((byte[]) val).length > 0)
+									&& Character.isLetterOrDigit((char) ((byte[]) val)[0])) {
+								try {
+									val = new String((byte[]) val, "utf8");
+								} catch (UnsupportedEncodingException e) {
+									val = ByteFormatter.nicePrint((byte[]) val, 16);
+								}
+
+							} else {
+								val = ByteFormatter.nicePrint((byte[]) val, 16);
+							}
+						}
+						logWarnings.append("\t").append(o).append(" : ").append(val).append(
+								NL);
 					}
 				}
 			} catch (IllegalAccessException e) {
@@ -218,22 +239,19 @@ public class SettingsImportInfo
 
 		int maxActiveTorrents = MapUtils.getMapInt(utSettings,
 				Queueing.MAX_ACTIVE_TORRENT, Queueing.MAX_ACTIVE_TORRENT_DEF);
-		item = new DirectConfigMigrate(Queueing.MAX_ACTIVE_TORRENT,
-				"max active torrents", maxActiveTorrents);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Queueing.MAX_ACTIVE_TORRENT,
+				"max active torrents", maxActiveTorrents));
 
 		int maxDownloads = MapUtils.getMapInt(utSettings,
 				Queueing.MAX_ACTIVE_DOWNLOADS, Queueing.MAX_ACTIVE_DOWNLOADS_DEF);
-		item = new DirectConfigMigrate(Queueing.MAX_ACTIVE_DOWNLOADS,
-				"max downloads", maxDownloads);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Queueing.MAX_ACTIVE_DOWNLOADS, "max downloads",
+				maxDownloads));
 
 		int minRatioX10 = MapUtils.getMapInt(utSettings, Queueing.SEED_RATIO_X10,
 				Queueing.SEED_RATIO_DEF);
 		if (minRatioX10 != Queueing.SEED_RATIO_DEF) {
-			item = new DirectConfigMigrate(Queueing.SEED_RATIO_X10,
-					"StartStopManager_iFirstPriority_ShareRatio", minRatioX10);
-			listConfigMigrations.add(item);
+			add(new DirectConfigMigrate(Queueing.SEED_RATIO_X10,
+					"StartStopManager_iFirstPriority_ShareRatio", minRatioX10));
 		}
 
 		///
@@ -257,9 +275,8 @@ public class SettingsImportInfo
 				}
 			}
 		}
-		item = new DirectConfigMigrate(Queueing.SEED_TIME_SECS, minSeedingTime,
-				"StartStopManager_iFirstPriority_SeedingMinutes", minSeedingTimeMins);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Queueing.SEED_TIME_SECS, minSeedingTime,
+				"StartStopManager_iFirstPriority_SeedingMinutes", minSeedingTimeMins));
 
 		///
 
@@ -312,22 +329,19 @@ public class SettingsImportInfo
 	}
 
 	private void processPreferencesGeneral() {
-		DirectConfigMigrate item;
 		boolean autoStart = getFlag(General.AUTOSTART, General.AUTOSTART_DEF);
-		item = new DirectConfigMigrate(General.AUTOSTART,
-				StartupShutdown.BCFG_START_ON_LOGIN, autoStart);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(General.AUTOSTART,
+				StartupShutdown.BCFG_START_ON_LOGIN, autoStart));
 
 		preAllocSpace = getFlag(General.PREALLOC_SPACE, General.PREALLOC_SPACE_DEF);
-		item = new DirectConfigMigrate(General.PREALLOC_SPACE, BCFG_ZERO_NEW,
-				preAllocSpace);
+		DirectConfigMigrate item = add(new DirectConfigMigrate(
+				General.PREALLOC_SPACE, BCFG_ZERO_NEW, preAllocSpace));
 		if (!preAllocSpace) {
 			// Even when BCFG_ZERO_NEW is off, BiglyBT allocates the whole size
 			// Disabling BCFG_ENABLE_INCREMENTAL_FILE_CREATION allocates a 0 byte file, which is as close to the uT setting as we can get
 			item.add(General.PREALLOC_SPACE, preAllocSpace,
 					BCFG_ENABLE_INCREMENTAL_FILE_CREATION, true);
 		}
-		listConfigMigrations.add(item);
 	}
 
 	private void processPreferencesLabel() {
@@ -341,6 +355,10 @@ public class SettingsImportInfo
 			for (Object key : mapLabelDirectory.keySet()) {
 				String label = (String) key;
 				String dir = Utils.objectToString(mapLabelDirectory.get(key));
+				if (dir == null || dir.isEmpty()) {
+					continue;
+				}
+				dir = importer.replaceFolders(dir);
 				TagToAddInfo tagToAddInfo = importer.addTag(null, label,
 						TG_UTORRENT_DIRMAPPING);
 				if (tagToAddInfo != null) {
@@ -353,6 +371,9 @@ public class SettingsImportInfo
 			for (Object key : mapLabelRule.keySet()) {
 				String label = (String) key;
 				String rule = Utils.objectToString(mapLabelRule.get(key));
+				if (rule == null || rule.isEmpty()) {
+					continue;
+				}
 				if (rule.startsWith("contains:")) {
 					String containRule = rule.substring(9);
 					TagToAddInfo tagToAddInfo = mapNewLabel2Directory.get(label);
@@ -375,47 +396,40 @@ public class SettingsImportInfo
 	}
 
 	private void processPreferencesBandwidth() {
-		DirectConfigMigrate item;
-		///
-		// Preferences -> Bandwidth
-		////
-
 		int maxUlRate = MapUtils.getMapInt(utSettings, Bandwidth.MAX_UL_RATE,
 				Bandwidth.MAX_UL_RATE_DEF);
-		item = new DirectConfigMigrate(Bandwidth.MAX_UL_RATE,
-				ICFG_MAX_UPLOAD_SPEED_KBS, maxUlRate);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Bandwidth.MAX_UL_RATE,
+				ICFG_MAX_UPLOAD_SPEED_KBS, maxUlRate));
 
 		///
 
 		boolean altUlRate = getFlag(Bandwidth.MAX_UL_RATE_SEED_FLAG,
 				Bandwidth.MAX_UL_RATE_SEED_FLAG_DEF);
-		item = new DirectConfigMigrate(Bandwidth.MAX_UL_RATE_SEED_FLAG,
-				BCFG_ENABLE_SEEDINGONLY_MAXUPLOADS, altUlRate);
+		DirectConfigMigrate itemULRate = add(
+				new DirectConfigMigrate(Bandwidth.MAX_UL_RATE_SEED_FLAG,
+						BCFG_ENABLE_SEEDINGONLY_MAXUPLOADS, altUlRate));
 
 		int maxUlRateAlt = MapUtils.getMapInt(utSettings,
 				Bandwidth.MAX_UL_RATE_SEED, Bandwidth.MAX_UL_RATE_SEED_DEF);
-		item.add(Bandwidth.MAX_UL_RATE_SEED, ICFG_MAX_UPLOAD_SPEED_SEEDING_KBS,
-				maxUlRateAlt);
-		listConfigMigrations.add(item);
+		itemULRate.add(Bandwidth.MAX_UL_RATE_SEED,
+				ICFG_MAX_UPLOAD_SPEED_SEEDING_KBS, maxUlRateAlt);
 
 		///
 
 		int maxDlRate = MapUtils.getMapInt(utSettings, Bandwidth.MAX_DL_RATE,
 				Bandwidth.MAX_DL_RATE_DEF);
-		item = new DirectConfigMigrate(Bandwidth.MAX_DL_RATE,
-				ICFG_MAX_DOWNLOAD_SPEED_KBS, maxDlRate);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Bandwidth.MAX_DL_RATE,
+				ICFG_MAX_DOWNLOAD_SPEED_KBS, maxDlRate));
 
 		///
 
 		boolean rateLimitIncludesTransport = getFlag(Bandwidth.NET_CALC_OVERHEAD,
 				Bandwidth.NET_CALC_OVERHEAD_DEF);
-		item = new DirectConfigMigrate(Bandwidth.NET_CALC_OVERHEAD,
-				BCFG_DOWN_RATE_LIMITS_INCLUDE_PROTOCOL, rateLimitIncludesTransport);
-		item.add(Bandwidth.NET_CALC_OVERHEAD, BCFG_UP_RATE_LIMITS_INCLUDE_PROTOCOL,
-				rateLimitIncludesTransport);
-		listConfigMigrations.add(item);
+		DirectConfigMigrate itemRLIT = add(new DirectConfigMigrate(
+				Bandwidth.NET_CALC_OVERHEAD, BCFG_DOWN_RATE_LIMITS_INCLUDE_PROTOCOL,
+				rateLimitIncludesTransport));
+		itemRLIT.add(Bandwidth.NET_CALC_OVERHEAD,
+				BCFG_UP_RATE_LIMITS_INCLUDE_PROTOCOL, rateLimitIncludesTransport);
 
 		///
 
@@ -429,32 +443,27 @@ public class SettingsImportInfo
 				&& maxConnsPerTorrent == Bandwidth.CONNS_PER_TORRENT_DEF
 				&& uploadSlots == Bandwidth.UL_SLOTS_PER_TORRENT_DEF) {
 			// User didn't modify uT bandwidth settings, use "Auto" in BiglyBT
-			item = new DirectConfigMigrate(null, BCFG_AUTO_ADJUST_TRANSFER_DEFAULTS,
-					true);
-			listConfigMigrations.add(item);
+			add(new DirectConfigMigrate(null, BCFG_AUTO_ADJUST_TRANSFER_DEFAULTS,
+					true));
 		} else {
-			item = new DirectConfigMigrate(null, BCFG_AUTO_ADJUST_TRANSFER_DEFAULTS,
-					false);
-			item.add(Bandwidth.CONNS_GLOBALLY, ICFG_MAX_PEER_CONNECTIONS_TOTAL,
+			DirectConfigMigrate itemAATD = add(new DirectConfigMigrate(null,
+					BCFG_AUTO_ADJUST_TRANSFER_DEFAULTS, false));
+			itemAATD.add(Bandwidth.CONNS_GLOBALLY, ICFG_MAX_PEER_CONNECTIONS_TOTAL,
 					maxConnections);
-			item.add(Bandwidth.CONNS_PER_TORRENT,
+			itemAATD.add(Bandwidth.CONNS_PER_TORRENT,
 					ICFG_MAX_PEER_CONNECTIONS_PER_TORRENT, maxConnsPerTorrent);
-			item.add(Bandwidth.UL_SLOTS_PER_TORRENT, ICFG_MAX_UPLOADS, uploadSlots);
-			listConfigMigrations.add(item);
+			itemAATD.add(Bandwidth.UL_SLOTS_PER_TORRENT, ICFG_MAX_UPLOADS,
+					uploadSlots);
 		}
 	}
 
 	private void processPreferencesBitTorrent() {
 		DirectConfigMigrate item;
-		///
-		// Preferences -> BitTorrent
-		////
 
 		boolean enableDHT = getFlag(BitTorrent.DHT, BitTorrent.DHT_DEF);
-		item = new DirectConfigMigrate(BitTorrent.DHT, "Plugin.mlDHT.enable",
-				enableDHT);
-		item.add(BitTorrent.DHT, "Plugin.DHT.dht.enabled", enableDHT);
-		listConfigMigrations.add(item);
+		DirectConfigMigrate itemDHT = add(new DirectConfigMigrate(BitTorrent.DHT,
+				"Plugin.mlDHT.enable", enableDHT)).add(BitTorrent.DHT,
+						"Plugin.DHT.dht.enabled", enableDHT);
 
 		if (enableDHT) {
 			importer.addRequiredPlugin(Importer_uTorrent.PLUGINID_MLDHT);
@@ -464,58 +473,52 @@ public class SettingsImportInfo
 
 		boolean enableDHTnewTorrents = getFlag(BitTorrent.DHT_PER_TORRENT,
 				BitTorrent.DHT_PER_TORRENT_DEF);
-		item = new DirectConfigMigrate(BitTorrent.DHT_PER_TORRENT,
-				BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "DHT", enableDHTnewTorrents);
+		item = add(new DirectConfigMigrate(BitTorrent.DHT_PER_TORRENT,
+				BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "DHT", enableDHTnewTorrents));
 		// mlDHT is classified as  BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "Plugin"
 		// enable/disabling it also affects other plugins such as I2P
 		item.add(BitTorrent.DHT_PER_TORRENT,
 				BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "Plugin", enableDHTnewTorrents);
-		listConfigMigrations.add(item);
 
 		///
 
 		boolean enableLPD = getFlag(BitTorrent.LPD, BitTorrent.LPD_DEF);
-		item = new DirectConfigMigrate(BitTorrent.LPD,
-				"Plugin.azlocaltracker.Plugin.localtracker.enable", enableLPD);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(BitTorrent.LPD,
+				"Plugin.azlocaltracker.Plugin.localtracker.enable", enableLPD));
 
 		///
 
 		boolean useUDPTrackers = getFlag(BitTorrent.USE_UDP_TRACKERS,
 				BitTorrent.USE_UDP_TRACKERS_DEF);
-		item = new DirectConfigMigrate(BitTorrent.USE_UDP_TRACKERS,
-				BCFG_SERVER_ENABLE_UDP, useUDPTrackers);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(BitTorrent.USE_UDP_TRACKERS,
+				BCFG_SERVER_ENABLE_UDP, useUDPTrackers));
 
 		///
 
 		String trackerIP = MapUtils.getMapString(utSettings, BitTorrent.TRACKER_IP,
 				"");
-		item = new DirectConfigMigrate(BitTorrent.TRACKER_IP, SCFG_OVERRIDE_IP,
-				trackerIP);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(BitTorrent.TRACKER_IP, SCFG_OVERRIDE_IP,
+				trackerIP));
 
 		///
 
 		boolean enableScrape = getFlag(BitTorrent.ENABLE_SCRAPE,
 				BitTorrent.ENABLE_SCRAPE_DEF);
-		item = new DirectConfigMigrate(BitTorrent.ENABLE_SCRAPE,
-				BCFG_TRACKER_CLIENT_SCRAPE_ENABLE, enableScrape);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(BitTorrent.ENABLE_SCRAPE,
+				BCFG_TRACKER_CLIENT_SCRAPE_ENABLE, enableScrape));
 
 		///
 
 		boolean enablePEX = getFlag(BitTorrent.PEX, BitTorrent.PEX_DEF);
-		item = new DirectConfigMigrate(BitTorrent.PEX,
-				BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "PeerExchange", enablePEX);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(BitTorrent.PEX,
+				BCFG_PREFIX_PEER_SRC_SELECTION_DEF + "PeerExchange", enablePEX));
 
 		///
 
 		boolean limitLocalPeerBW = getFlag(BitTorrent.RATE_LIMIT_LOCAL_PEERS,
 				BitTorrent.RATE_LIMIT_LOCAL_PEERS_DEF);
-		item = new DirectConfigMigrate(BitTorrent.RATE_LIMIT_LOCAL_PEERS,
-				limitLocalPeerBW, BCFG_LAN_SPEED_ENABLED, !limitLocalPeerBW);
+		item = add(new DirectConfigMigrate(BitTorrent.RATE_LIMIT_LOCAL_PEERS,
+				limitLocalPeerBW, BCFG_LAN_SPEED_ENABLED, !limitLocalPeerBW));
 		if (!limitLocalPeerBW) {
 			item.add(BitTorrent.RATE_LIMIT_LOCAL_PEERS,
 					ICFG_MAX_LAN_DOWNLOAD_SPEED_K_BS, 0);
@@ -536,72 +539,60 @@ public class SettingsImportInfo
 		int protEncryption = MapUtils.getMapInt(utSettings,
 				BitTorrent.ENCRYPTION_MODE, BitTorrent.ENCRYPTION_MODE_DEF);
 		if (protEncryption == 0) {
-			item = new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE, protEncryption,
-					BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, false);
-			listConfigMigrations.add(item);
+			add(new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE, protEncryption,
+					BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, false));
 		} else if (protEncryption == 1) { // enable
-			item = new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE, protEncryption,
-					BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, true);
+			item = add(new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE,
+					protEncryption, BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, true));
 			item.add(BitTorrent.ENCRYPTION_MODE, protEncryption,
 					SCFG_NETWORK_TRANSPORT_ENCRYPTED_MIN_LEVEL, "RC4");
 			item.add(BitTorrent.ENCRYPTION_MODE, protEncryption,
 					BCFG_NETWORK_TRANSPORT_ENCRYPTED_FALLBACK_OUTGOING, true);
-			listConfigMigrations.add(item);
 		} else if (protEncryption == 2) { // Forced
-			item = new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE, protEncryption,
-					BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, true);
+			item = add(new DirectConfigMigrate(BitTorrent.ENCRYPTION_MODE,
+					protEncryption, BCFG_NETWORK_TRANSPORT_ENCRYPTED_REQUIRE, true));
 			item.add(BitTorrent.ENCRYPTION_MODE, protEncryption,
 					SCFG_NETWORK_TRANSPORT_ENCRYPTED_MIN_LEVEL, "RC4");
 			item.add(BitTorrent.ENCRYPTION_MODE, protEncryption,
 					BCFG_NETWORK_TRANSPORT_ENCRYPTED_FALLBACK_OUTGOING, false);
-			listConfigMigrations.add(item);
 		}
 
 		///
 
 		boolean protEncryptionLegacy = getFlag(BitTorrent.ENCRYPTION_ALLOW_LEGACY,
 				BitTorrent.ENCRYPTION_ALLOW_LEGACY_DEF);
-		item = new DirectConfigMigrate(BitTorrent.ENCRYPTION_ALLOW_LEGACY,
+		add(new DirectConfigMigrate(BitTorrent.ENCRYPTION_ALLOW_LEGACY,
 				BCFG_NETWORK_TRANSPORT_ENCRYPTED_FALLBACK_INCOMING,
-				protEncryptionLegacy);
-		listConfigMigrations.add(item);
+				protEncryptionLegacy));
 	}
 
 	private void processPreferencesConnection() {
-		DirectConfigMigrate item;///
-		// Preferences -> Connection
-		////
-
 		long bindPort = MapUtils.getMapLong(utSettings, Connection.BIND_PORT, 0);
 		if (bindPort > 0) {
-			item = new DirectConfigMigrate(Connection.BIND_PORT,
+			add(new DirectConfigMigrate(Connection.BIND_PORT,
 					ConfigKeys.Connection.ICFG_TCP_LISTEN_PORT, bindPort).add(
 							Connection.BIND_PORT, ConfigKeys.Connection.ICFG_UDP_LISTEN_PORT,
-							bindPort);
-			listConfigMigrations.add(item);
+							bindPort));
 		}
 
 		///
 
 		boolean enableUPNP = getFlag(Connection.UPNP, Connection.UPNP_DEF);
-		item = new DirectConfigMigrate(Connection.UPNP, "Plugin.UPnP.upnp.enable",
-				enableUPNP);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Connection.UPNP, "Plugin.UPnP.upnp.enable",
+				enableUPNP));
 
 		///
 
 		boolean randomizePort = getFlag(Connection.RAND_PORT_ON_START,
 				Connection.RAND_PORT_ON_START_DEF);
-		item = new DirectConfigMigrate(Connection.RAND_PORT_ON_START,
-				BCFG_LISTEN_PORT_RANDOMIZE_ENABLE, randomizePort);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Connection.RAND_PORT_ON_START,
+				BCFG_LISTEN_PORT_RANDOMIZE_ENABLE, randomizePort));
 
 		///
 
 		boolean enableNATPMP = getFlag(Connection.NATPMP, Connection.NATPMP_DEF);
-		item = new DirectConfigMigrate(Connection.NATPMP,
-				"Plugin.UPnP.natpmp.enable", enableNATPMP);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(Connection.NATPMP, "Plugin.UPnP.natpmp.enable",
+				enableNATPMP));
 
 		///
 		// Preferences -> Connection -> Proxy Server
@@ -610,12 +601,11 @@ public class SettingsImportInfo
 		int proxyType = MapUtils.getMapInt(utSettings, Connection.PROXY_TYPE,
 				Connection.PROXY_TYPE_DEF);
 		if (proxyType == 0) {
-			item = new DirectConfigMigrate(Connection.PROXY_TYPE, proxyType,
-					BCFG_ENABLE_PROXY, false);
-			listConfigMigrations.add(item);
+			add(new DirectConfigMigrate(Connection.PROXY_TYPE, proxyType,
+					BCFG_ENABLE_PROXY, false));
 		} else {
-			item = new DirectConfigMigrate(Connection.PROXY_TYPE, proxyType,
-					BCFG_ENABLE_PROXY, true);
+			DirectConfigMigrate item = add(new DirectConfigMigrate(
+					Connection.PROXY_TYPE, proxyType, BCFG_ENABLE_PROXY, true));
 
 			item.add(Connection.PROXY_TYPE, proxyType, BCFG_ENABLE_SOCKS,
 					proxyType == 1 || proxyType == 2);
@@ -656,26 +646,19 @@ public class SettingsImportInfo
 					Connection.NO_LOCAL_DNS_DEF);
 			item.add(Connection.NO_LOCAL_DNS, BCFG_PROXY_SOCKS_TRACKER_DNS_DISABLE,
 					disableLocalDNS);
-
-			listConfigMigrations.add(item);
 		}
 	}
 
 	private void processPreferencesDirectories() {
-		DirectConfigMigrate item;///
-		// Preferences -> Directories
-		////
-
 		boolean customSavePath = getFlag(Directories.DIR_ACTIVE_DOWNLOAD_FLAG,
 				false);
 		if (customSavePath) {
-			String savePath = MapUtils.getMapString(utSettings,
-					Directories.DIR_ACTIVE_DOWNLOAD, "");
+			String savePath = importer.replaceFolders(MapUtils.getMapString(
+					utSettings, Directories.DIR_ACTIVE_DOWNLOAD, ""));
 			if (savePath.length() > 0 && new File(savePath).isDirectory()) {
-				item = new DirectConfigMigrate().addPrivate(
+				add(new DirectConfigMigrate().addPrivate(
 						Directories.DIR_ACTIVE_DOWNLOAD,
-						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath);
-				listConfigMigrations.add(item);
+						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath));
 			} else {
 				logWarnings.append("Invalid default save folder of ").append(
 						Utils.wrapString(savePath)).append(NL);
@@ -686,15 +669,15 @@ public class SettingsImportInfo
 
 		boolean moveOnComplete = getFlag(Directories.DIR_COMPLETED_DOWNLOAD_FLAG,
 				false);
-		item = new DirectConfigMigrate(Directories.DIR_COMPLETED_DOWNLOAD_FLAG,
-				ConfigKeys.File.BCFG_MOVE_COMPLETED_WHEN_DONE, moveOnComplete);
-		String moveOnCompletePath = MapUtils.getMapString(utSettings,
-				Directories.DIR_COMPLETED_DOWNLOAD, "");
+		DirectConfigMigrate itemDirComplete = add(
+				new DirectConfigMigrate(Directories.DIR_COMPLETED_DOWNLOAD_FLAG,
+						BCFG_MOVE_COMPLETED_WHEN_DONE, moveOnComplete));
+		String moveOnCompletePath = importer.replaceFolders(MapUtils.getMapString(
+				utSettings, Directories.DIR_COMPLETED_DOWNLOAD, ""));
 		if (moveOnCompletePath.length() > 0
 				&& new File(moveOnCompletePath).isDirectory()) {
-			item.addPrivate(Directories.DIR_COMPLETED_DOWNLOAD,
+			itemDirComplete.addPrivate(Directories.DIR_COMPLETED_DOWNLOAD,
 					ConfigKeys.File.SCFG_COMPLETED_FILES_DIRECTORY, moveOnCompletePath);
-			listConfigMigrations.add(item);
 		} else if (moveOnComplete) {
 			logWarnings.append("Invalid default save folder of ").append(
 					Utils.wrapString(moveOnCompletePath)).append(NL);
@@ -709,51 +692,51 @@ public class SettingsImportInfo
 
 			boolean moveOnlyIfDefault = getFlag(
 					Directories.DIR_COMPLETED_MOVE_IF_DEFDIR, true);
-			item.add(Directories.DIR_COMPLETED_MOVE_IF_DEFDIR,
+			itemDirComplete.add(Directories.DIR_COMPLETED_MOVE_IF_DEFDIR,
 					ConfigKeys.File.BCFG_MOVE_ONLY_WHEN_IN_DEFAULT_SAVE_DIR,
 					moveOnlyIfDefault);
 		}
-		listConfigMigrations.add(item);
 
 		///
 
 		boolean saveTorrentFile = getFlag(Directories.DIR_TORRENT_FILES_FLAG,
 				false);
-		// uTorrent flag is different than BiglyBT in that is still makes a copy
+		// uTorrent flag is different than BiglyBT in that it still makes a copy
 		// of the .torrent file.  So we will keep BiglyBT flag as is
-		//item = new DirectConfigMigrate(Directories.DIR_TORRENT_FILES_FLAG,
+		//add(new DirectConfigMigrate(Directories.DIR_TORRENT_FILES_FLAG,
 		//		ConfigKeys.File.BCFG_SAVE_TORRENT_FILES, saveTorrentFile);
-		item = new DirectConfigMigrate();
 		if (saveTorrentFile) {
-			String saveTorrentFileDir = MapUtils.getMapString(utSettings,
-					Directories.DIR_TORRENT_FILES, "");
+			DirectConfigMigrate itemSaveTorrentFile = add(new DirectConfigMigrate());
+
+			String saveTorrentFileDir = importer.replaceFolders(
+					MapUtils.getMapString(utSettings, Directories.DIR_TORRENT_FILES, ""));
 			if (!saveTorrentFileDir.isEmpty()
 					&& new File(saveTorrentFileDir).isDirectory()) {
-				item.addPrivate(Directories.DIR_TORRENT_FILES,
+				add(new DirectConfigMigrate().addPrivate(Directories.DIR_TORRENT_FILES,
 						ConfigKeys.File.SCFG_GENERAL_DEFAULT_TORRENT_DIRECTORY,
-						saveTorrentFileDir);
+						saveTorrentFileDir));
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
 						Utils.wrapString(saveTorrentFileDir)).append(NL);
 			}
 		}
-		listConfigMigrations.add(item);
 
 		///
 
 		boolean moveTorrentFileOnComplete = getFlag(
 				Directories.DIR_COMPLETED_TORRENTS_FLAG, false);
-		item = new DirectConfigMigrate(Directories.DIR_COMPLETED_DOWNLOAD_FLAG,
-				ConfigKeys.File.BCFG_MOVE_TORRENT_WHEN_DONE, moveTorrentFileOnComplete);
-		String moveTorrentFileOnCompleteDir = MapUtils.getMapString(utSettings,
-				Directories.DIR_COMPLETED_TORRENTS, "");
+		DirectConfigMigrate itemMTFOC = add(
+				new DirectConfigMigrate(Directories.DIR_COMPLETED_TORRENTS_FLAG,
+						BCFG_MOVE_TORRENT_WHEN_DONE, moveTorrentFileOnComplete));
+		String moveTorrentFileOnCompleteDir = importer.replaceFolders(
+				MapUtils.getMapString(utSettings, Directories.DIR_COMPLETED_TORRENTS,
+						""));
 		if (!moveTorrentFileOnCompleteDir.isEmpty()
 				&& new File(moveTorrentFileOnCompleteDir).isDirectory()) {
-			item.addPrivate(Directories.DIR_COMPLETED_TORRENTS,
+			itemMTFOC.addPrivate(Directories.DIR_COMPLETED_TORRENTS,
 					ConfigKeys.File.SCFG_MOVE_TORRENT_WHEN_DONE_DIRECTORY,
 					moveTorrentFileOnCompleteDir);
 		}
-		listConfigMigrations.add(item);
 		if (moveTorrentFileOnComplete && !moveOnComplete) {
 			logWarnings.append(
 					"BiglyBT doesn't support moving .torrent files on completion without also moving data files on completion :(").append(
@@ -765,11 +748,12 @@ public class SettingsImportInfo
 
 		boolean autoImportTorrents = getFlag(Directories.DIR_AUTOLOAD_FLAG, false);
 		if (autoImportTorrents) {
-			item = new DirectConfigMigrate(Directories.DIR_AUTOLOAD_FLAG,
-					ConfigKeys.File.BCFG_WATCH_TORRENT_FOLDER, autoImportTorrents);
+			DirectConfigMigrate item = add(
+					new DirectConfigMigrate(Directories.DIR_AUTOLOAD_FLAG,
+							BCFG_WATCH_TORRENT_FOLDER, autoImportTorrents));
 
-			String autoImportTorrentsDir = MapUtils.getMapString(utSettings,
-					Directories.DIR_AUTOLOAD, "");
+			String autoImportTorrentsDir = importer.replaceFolders(
+					MapUtils.getMapString(utSettings, Directories.DIR_AUTOLOAD, ""));
 			if (!autoImportTorrentsDir.isEmpty()
 					&& new File(autoImportTorrentsDir).exists()) {
 				String key;
@@ -795,7 +779,6 @@ public class SettingsImportInfo
 				logInfo.append(
 						"You can also assign a tag to automatically imported torrents in Options->Files->Torrents").append(
 								NL);
-				listConfigMigrations.add(item);
 			}
 
 			boolean deleteLoaded = getFlag(Directories.DIR_AUTOLOAD_DELETE, false);
@@ -806,6 +789,11 @@ public class SettingsImportInfo
 										" will not be deleted.").append(NL);
 			}
 		}
+	}
+
+	private DirectConfigMigrate add(DirectConfigMigrate item) {
+		listConfigMigrations.add(item);
+		return item;
 	}
 
 	private void processPreferencesUISettings() {
@@ -820,18 +808,16 @@ public class SettingsImportInfo
 		// When deleting "torrents", BiglyBT has separate options for deleting torrent content and torrent
 		// Don't turn off delete prompt. Use can do it on first delete
 		if (confirmDeleteTorrents) {
-			item = new DirectConfigMigrate(UI_Settings.CONFIRM_WHEN_DELETING,
-					confirmDeleteTorrents, "tb.confirm.delete.content", 0);
-			listConfigMigrations.add(item);
+			add(new DirectConfigMigrate(UI_Settings.CONFIRM_WHEN_DELETING,
+					confirmDeleteTorrents, "tb.confirm.delete.content", 0));
 		}
 
 		///
 
 		boolean confirmExit = getFlag(UI_Settings.CONFIRM_EXIT,
 				UI_Settings.CONFIRM_EXIT_DEF);
-		item = new DirectConfigMigrate(UI_Settings.CONFIRM_EXIT, confirmExit,
-				"confirmationOnExit", confirmExit);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.CONFIRM_EXIT, confirmExit,
+				"confirmationOnExit", confirmExit));
 
 		///
 
@@ -851,9 +837,8 @@ public class SettingsImportInfo
 
 		boolean speedInTitle = getFlag(UI_Settings.GUI_SPEED_IN_TITLE,
 				UI_Settings.GUI_SPEED_IN_TITLE_DEF);
-		item = new DirectConfigMigrate(UI_Settings.GUI_SPEED_IN_TITLE,
-				"Show Status In Window Title", speedInTitle);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.GUI_SPEED_IN_TITLE,
+				"Show Status In Window Title", speedInTitle));
 
 		///
 
@@ -875,9 +860,8 @@ public class SettingsImportInfo
 
 		boolean minimizeMinimizedToTray = getFlag(UI_Settings.MINIMIZE_TO_TRAY,
 				UI_Settings.MINIMIZE_TO_TRAY_DEF);
-		item = new DirectConfigMigrate(UI_Settings.MINIMIZE_TO_TRAY,
-				"Minimize To Tray", minimizeMinimizedToTray);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.MINIMIZE_TO_TRAY,
+				"Minimize To Tray", minimizeMinimizedToTray));
 
 		///
 
@@ -890,34 +874,32 @@ public class SettingsImportInfo
 
 		boolean closeToTray = getFlag(UI_Settings.CLOSE_TO_TRAY,
 				UI_Settings.CLOSE_TO_TRAY_DEF);
-		item = new DirectConfigMigrate(UI_Settings.CLOSE_TO_TRAY, "Close To Tray",
-				closeToTray);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.CLOSE_TO_TRAY, "Close To Tray",
+				closeToTray));
 
 		///
 
 		boolean addStopped = getFlag(UI_Settings.TORRENTS_START_STOPPED,
 				UI_Settings.TORRENTS_START_STOPPED_DEF);
-		item = new DirectConfigMigrate(UI_Settings.TORRENTS_START_STOPPED,
-				BCFG_DEFAULT_START_TORRENTS_STOPPED, addStopped);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.TORRENTS_START_STOPPED,
+				BCFG_DEFAULT_START_TORRENTS_STOPPED, addStopped));
 
 		///
 
 		boolean activateOnTorrentAdd = getFlag(UI_Settings.ACTIVATE_ON_FILE,
 				UI_Settings.ACTIVATE_ON_FILE_DEF);
-		item = new DirectConfigMigrate(UI_Settings.ACTIVATE_ON_FILE,
-				"Activate Window On External Download", activateOnTorrentAdd);
-		listConfigMigrations.add(item);
+		add(new DirectConfigMigrate(UI_Settings.ACTIVATE_ON_FILE,
+				"Activate Window On External Download", activateOnTorrentAdd));
 
 		///
 
 		boolean showOpenOptionsDialog = getFlag(UI_Settings.SHOW_ADD_DIALOG,
 				UI_Settings.SHOW_ADD_DIALOG_DEF);
-		item = new DirectConfigMigrate(UI_Settings.SHOW_ADD_DIALOG,
+		add(new DirectConfigMigrate(UI_Settings.SHOW_ADD_DIALOG,
 				showOpenOptionsDialog, ConfigurationDefaults.CFG_TORRENTADD_OPENOPTIONS,
-				ConfigurationDefaults.CFG_TORRENTADD_OPENOPTIONS_ALWAYS);
-		listConfigMigrations.add(item);
+				showOpenOptionsDialog
+						? ConfigurationDefaults.CFG_TORRENTADD_OPENOPTIONS_ALWAYS
+						: ConfigurationDefaults.CFG_TORRENTADD_OPENOPTIONS_NEVER));
 	}
 
 	private boolean getFlag(String key, boolean def) {

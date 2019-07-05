@@ -506,7 +506,7 @@ public class ResumeConstants {
 	/** byte[]<br>
 	 * bit per file.<br/>
 	 * bit is 0 : No suffix<br/>
-	 * bit is 1 : Suffix (.ut!) appended to filename
+	 * bit is 1 : Suffix (.!ut) appended to filename
 	 */
 	public static final String SUFFIXES = "suffixes";
 

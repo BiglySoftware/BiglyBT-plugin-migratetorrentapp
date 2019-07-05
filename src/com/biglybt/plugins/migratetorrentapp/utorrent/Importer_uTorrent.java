@@ -21,7 +21,6 @@ package com.biglybt.plugins.migratetorrentapp.utorrent;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.*;
 
@@ -54,6 +53,8 @@ public class Importer_uTorrent
 
 	public static final String PLUGINID_MLDHT = "mlDHT";
 
+	private static char utDirSeparator = 0;
+
 	final LoggerChannel loggerChannel;
 
 	private final Collection<String> requiredPlugins = new HashSet<>();
@@ -63,8 +64,6 @@ public class Importer_uTorrent
 	public final Map<String, TagToAddInfo> mapTagsToAdd = new HashMap<>();
 
 	private final Map<String, String> mapFolderReplacements = new HashMap<>();
-
-	private boolean isOSCaseSensitive;
 
 	final List<String> listAdditionalTorrentDirs = new ArrayList<>();
 
@@ -86,6 +85,7 @@ public class Importer_uTorrent
 	public Importer_uTorrent(PluginInterface pi,
 			ConfigModel_uTorrent configModelInfo) {
 		super(pi);
+
 		this.configModelInfo = configModelInfo;
 		String[] dirsSingle = configModelInfo.paramDataDirsSingle.getValue().split(
 				"[\\r\\n]+");
@@ -109,20 +109,9 @@ public class Importer_uTorrent
 			}
 		}
 
-		try {
-			File tempFile = File.createTempFile("BIG", ".tmp");
-			isOSCaseSensitive = !new File(
-					tempFile.getAbsolutePath().toLowerCase()).isFile();
-			tempFile.delete();
-		} catch (IOException e) {
-			isOSCaseSensitive = true;
-		}
 		String[] folderReplacements = configModelInfo.paramFolderReplacements.getValue().split(
 				"[\\r\\n]+");
 		for (String folderReplacement : folderReplacements) {
-			if (!isOSCaseSensitive) {
-				folderReplacement = folderReplacement.toLowerCase();
-			}
 			String[] split = folderReplacement.split("\\|", 2);
 			if (split.length == 2) {
 				mapFolderReplacements.put(split[0], split[1]);
@@ -163,6 +152,9 @@ public class Importer_uTorrent
 		}
 
 		File configDir = new File(configModelInfo.paramConfigDir.getValue());
+
+		detectUTOS(configDir);
+
 		settingsImportInfo = new SettingsImportInfo(this);
 		settingsImportInfo.processSettings(configDir);
 
@@ -182,6 +174,17 @@ public class Importer_uTorrent
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
 			l.analysisComplete(this);
+		}
+	}
+
+	private void detectUTOS(File configDir) {
+		if (new File(configDir, "utserver").isFile()) {
+			utDirSeparator = '/';
+			return;
+		}
+		if (new File(configDir, "utorrent.exe").isFile()) {
+			utDirSeparator = '\\';
+			return;
 		}
 	}
 
@@ -379,22 +382,54 @@ public class Importer_uTorrent
 	}
 
 	String replaceFolders(String path) {
-		String result = path;
-		String lowerPath = "";
-		if (!isOSCaseSensitive) {
-			lowerPath = path.toLowerCase();
+		if (path.isEmpty()) {
+			return path;
 		}
-		for (String key : mapFolderReplacements.keySet()) {
-			if (path.startsWith(key)
-					|| (!isOSCaseSensitive && lowerPath.startsWith(key))) {
-				String replaceWith = mapFolderReplacements.get(key);
-				result = replaceWith + path.substring(replaceWith.length());
+		String result;
+		char pathSeparator = detectDirSeparator(path);
+		if (pathSeparator != File.separatorChar) {
+			result = path.replace(pathSeparator, File.separatorChar);
+		} else {
+			result = path;
+		}
+
+		if (!new File(result).isAbsolute()) {
+			return result;
+		}
+
+		String lowerPath = path.toLowerCase();
+		for (String startsWith : mapFolderReplacements.keySet()) {
+			if (lowerPath.startsWith(startsWith)) {
+				String replaceWith = mapFolderReplacements.get(startsWith);
+				result = replaceWith + path.substring(startsWith.length());
 				if (new File(result).exists()) {
-					return result;
+					break;
 				}
 			}
 		}
 		return result;
+	}
+
+	private static char detectDirSeparator(String path) {
+		if (utDirSeparator > 0) {
+			return utDirSeparator;
+		}
+		if (path == null) {
+			return File.separatorChar;
+		}
+		if (path.length() > 2 && path.substring(1, 2).equalsIgnoreCase(":\\")) {
+			utDirSeparator = '\\';
+			return utDirSeparator;
+		} else {
+			boolean hasUnixSlash = path.contains("/");
+			boolean hasWinSlash = path.contains("\\");
+			if (hasUnixSlash != hasWinSlash) {
+				utDirSeparator = hasUnixSlash ? '/' : '\\';
+				return utDirSeparator;
+			}
+		}
+
+		return File.separatorChar;
 	}
 
 	public TagToAddInfo addTagIgnoreGroup(TorrentImportInfo importInfo,
