@@ -326,7 +326,8 @@ public class TorrentImportInfo
 		sb.append(NL);
 
 		if (hasWarnings()) {
-			sb.append("\nWarnings:").append(NL).append(logWarnings).append(NL);
+			sb.append(NL).append("Warnings:").append(NL).append(logWarnings).append(
+					NL);
 		}
 
 		if (obtainedFrom != null && obtainedFrom.length() > 0) {
@@ -480,7 +481,7 @@ public class TorrentImportInfo
 		}
 
 		if (hasInfo()) {
-			sb.append("\nInfo:").append(NL).append(logInfo);
+			sb.append(NL).append("Info:").append(NL).append(logInfo);
 		}
 
 		return sb.toString();

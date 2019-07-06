@@ -91,7 +91,7 @@ public class ConfigModel_uTorrent
 		configModel.createGroup(null, paramConfigDir, paramConfigDirInfo);
 
 		BooleanParameter paramShowAdditionalOptions = configModel.addBooleanParameter2(
-				"utShowAdditionalOptions", "utMigrate.showAdditionalFolders", false);
+				"utShowAdditionalOptions", "migrateapp.showAdditionalFolders", false);
 
 		final List<Parameter> listToggle = new ArrayList<>();
 
@@ -100,25 +100,25 @@ public class ConfigModel_uTorrent
 		List<Parameter> listTorrentDirParams = new ArrayList<>();
 
 		LabelParameter paramTorrentDirsInfo = configModel.addLabelParameter2(
-				"utMigrate.torrentDirs.info");
+				"migrateapp.torrentDirs.info");
 		listTorrentDirParams.add(paramTorrentDirsInfo);
 
 		paramTorrentDirs = configModel.addStringParameter2("utTorrentDirs", "", "");
 		listTorrentDirParams.add(paramTorrentDirs);
 		paramTorrentDirs.setMultiLine(4);
 		//does not work until 2.0.0.1
-		//paramTorrentDirs.setSuffixLabelKey("utMigrate.torrentDirs.info");
+		//paramTorrentDirs.setSuffixLabelKey("migrateapp.torrentDirs.info");
 
 		if (appUI.canBrowseDir()) {
 			ActionParameter btnAddTorrentDir = configModel.addActionParameter2("",
-					"utMigrate.button.addTorrentDir");
+					"migrateapp.button.addTorrentDir");
 			listTorrentDirParams.add(btnAddTorrentDir);
 			btnAddTorrentDir.addListener(
 					p -> appUI.browseAndAddDir(paramTorrentDirs));
 		}
 
 		ParameterGroup groupTorrentDirs = configModel.createGroup(
-				"utMigrate.torrentDirs",
+				"migrateapp.torrentDirs",
 				listTorrentDirParams.toArray(new Parameter[0]));
 		listToggle.add(groupTorrentDirs);
 
@@ -127,46 +127,46 @@ public class ConfigModel_uTorrent
 		List<Parameter> listDataDirParams = new ArrayList<>();
 
 		paramDataDirsRecursive = configModel.addStringParameter2(
-				"utDataDirsRecursive", "utMigrate.dataDirs.recursive", "");
+				"utDataDirsRecursive", "migrateapp.dataDirs.recursive", "");
 		listDataDirParams.add(paramDataDirsRecursive);
 		paramDataDirsRecursive.setMultiLine(4);
 
 		if (appUI.canBrowseDir()) {
 			ActionParameter btnAddDataDirRecursive = configModel.addActionParameter2(
-					"", "utMigrate.button.addDataDir");
+					"", "migrateapp.button.addDataDir");
 			listDataDirParams.add(btnAddDataDirRecursive);
 			btnAddDataDirRecursive.addListener(
 					p -> appUI.browseAndAddDir(paramDataDirsRecursive));
 		}
 
 		paramDataDirsSingle = configModel.addStringParameter2("utDataDirsSingle",
-				"utMigrate.dataDirs.single", "");
+				"migrateapp.dataDirs.single", "");
 		listDataDirParams.add(paramDataDirsSingle);
 		paramDataDirsSingle.setMultiLine(3);
 
 		if (appUI.canBrowseDir()) {
 			ActionParameter btnAddDataDirSingle = configModel.addActionParameter2("",
-					"utMigrate.button.addDataDir");
+					"migrateapp.button.addDataDir");
 			listDataDirParams.add(btnAddDataDirSingle);
 			btnAddDataDirSingle.addListener(
 					p -> appUI.browseAndAddDir(paramDataDirsSingle));
 		}
 
 		ParameterGroup groupDataDirs = configModel.createGroup(
-				"utMigrate.group.dataDirs",
+				"migrateapp.group.dataDirs",
 				listDataDirParams.toArray(new Parameter[0]));
 
 		listToggle.add(groupDataDirs);
 
 		LabelParameter paramFolderReplacementsInfo = configModel.addLabelParameter2(
-				"utMigrate.folderReplacements.info");
+				"migrateapp.folderReplacements.info");
 
 		paramFolderReplacements = configModel.addStringParameter2(
 				"utFolderReplacements", "", "");
 		paramFolderReplacements.setMultiLine(3);
 
 		ParameterGroup groupFolderReplacements = configModel.createGroup(
-				"utMigrate.folderReplacements", paramFolderReplacementsInfo,
+				"migrateapp.folderReplacements", paramFolderReplacementsInfo,
 				paramFolderReplacements);
 		listToggle.add(groupFolderReplacements);
 

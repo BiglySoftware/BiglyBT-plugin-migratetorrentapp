@@ -18,6 +18,7 @@
 
 package com.biglybt.plugins.migratetorrentapp.swt;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,11 +29,10 @@ import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.*;
 
+import com.biglybt.core.internat.MessageText;
+import com.biglybt.core.util.FileUtil;
 import com.biglybt.pifimpl.local.ui.config.ParameterImpl;
 import com.biglybt.pifimpl.local.ui.config.ParameterImplListener;
 import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent;
@@ -40,10 +40,10 @@ import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent.Migra
 import com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TagToAddInfo;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo;
+import com.biglybt.ui.UIFunctionsManager;
 import com.biglybt.ui.swt.Messages;
 import com.biglybt.ui.swt.Utils;
 import com.biglybt.ui.swt.config.BaseSwtParameter;
-import com.biglybt.ui.swt.mainwindow.ClipboardCopy;
 import com.biglybt.ui.swt.pif.UISWTView;
 import com.biglybt.ui.swt.pif.UISWTViewEvent;
 import com.biglybt.ui.swt.pif.UISWTViewEventListener;
@@ -194,15 +194,30 @@ public class MigrateViewEventListener
 		gridLayout.numColumns = 2;
 		cButtonArea.setLayout(gridLayout);
 
-		Button btnCopy = new Button(cButtonArea, SWT.PUSH);
-		Messages.setLanguageText(btnCopy, "migrateapp.button.copyAnalysisToClip");
+		Button btnSaveAnalysis = new Button(cButtonArea, SWT.PUSH);
+		Messages.setLanguageText(btnSaveAnalysis, "migrateapp.button.saveAnalysis");
 		Label lblCopy = new Label(cButtonArea, SWT.WRAP);
-		Messages.setLanguageText(lblCopy,
-				"migrateapp.button.copyAnalysisToClip.info");
+		Messages.setLanguageText(lblCopy, "migrateapp.button.saveAnalysis.info");
 
-		btnCopy.addListener(SWT.Selection, event -> {
-			StringBuilder sb = buildAnalysisResults(importer, false);
-			ClipboardCopy.copyToClipBoard(hidePrivate(sb.toString()));
+		btnSaveAnalysis.addListener(SWT.Selection, event -> {
+			FileDialog dialog = new FileDialog(Utils.findAnyShell(), SWT.SAVE);
+			dialog.setText(MessageText.getString("migrateapp.button.saveAnalysis"));
+			dialog.setFilterNames(new String[] {
+				"Text Files",
+				"All Files (*.*)"
+			});
+			dialog.setFilterExtensions(new String[] {
+				"*.txt",
+				"*.*"
+			});
+			dialog.setFileName("uT_Migrate_Analysis.txt");
+			String name = dialog.open();
+			if (name != null) {
+				StringBuilder sb = buildAnalysisResults(importer, false);
+				File file = new File(name);
+				FileUtil.writeStringAsFile(file, hidePrivate(sb.toString()));
+				UIFunctionsManager.getUIFunctions().showInExplorer(file);
+			}
 		});
 
 		Button btnShowOnlyWarnings = new Button(cButtonArea, SWT.CHECK);
