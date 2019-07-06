@@ -227,7 +227,7 @@ public class ConfigModel_uTorrent
 					paramAnalyze.setEnabled(true);
 					// Can do this after 2001
 					//actionMigrate.setVisible(true);
-					actionMigrate.setEnabled(true);
+					actionMigrate.setEnabled(importer.canMigrate());
 				}
 
 				@Override

@@ -210,10 +210,10 @@ public class TorrentImportInfo
 	private String caption;
 
 	public TorrentImportInfo(Importer_uTorrent importer, File torrentFile,
-			String torrentKey, Map<String, Object> map) {
+			String torrentKey, Map<String, Object> map, String origTorrentFilePath) {
 		this.importer = importer;
 		this.torrentKey = torrentKey;
-		processTorrent(torrentFile, map);
+		processTorrent(torrentFile, origTorrentFilePath, map);
 	}
 
 	private static boolean existsAndSizeOrZero(File file, long requiredSize) {
@@ -402,15 +402,18 @@ public class TorrentImportInfo
 			}
 
 			sb.append(downloadedBytes).append(" bytes downloaded").append(NL);
-			sb.append(havePieceBytes).append(
-					" bytes in fully downloaded pieces").append(NL);
-			if (haveBlockBytes > 0) {
-				sb.append(havePieceBytes + haveBlockBytes).append(
-						" bytes in fully downloaded pieces and blocks").append(NL);
-			}
-			if (downloadedBytes != havePieceBytes + haveBlockBytes) {
-				sb.append(
-						"Piece & Block Info does not match downloaded results!").append(NL);
+			if (torrent != null) {
+				sb.append(havePieceBytes).append(
+						" bytes in fully downloaded pieces").append(NL);
+				if (haveBlockBytes > 0) {
+					sb.append(havePieceBytes + haveBlockBytes).append(
+							" bytes in fully downloaded pieces and blocks").append(NL);
+				}
+				if (downloadedBytes != havePieceBytes + haveBlockBytes) {
+					sb.append(
+							"Piece & Block Info does not match downloaded results!").append(
+									NL);
+				}
 			}
 		}
 
@@ -521,7 +524,8 @@ public class TorrentImportInfo
 		return Base32.encode(infoHash).compareTo(Base32.encode(o.infoHash));
 	}
 
-	private void processTorrent(File _torrentFile, Map<String, Object> map) {
+	private void processTorrent(File _torrentFile, String origTorrentFilePath,
+			Map<String, Object> map) {
 
 		infoHash = MapUtils.getMapByteArray(map, ResumeConstants.INFO, null);
 
@@ -548,57 +552,73 @@ public class TorrentImportInfo
 						logInfo.append(NL);
 
 						_torrentFile = newTorrentFile;
+						break;
 					}
 				}
 			}
 		}
 
-		// Fixup discrepencies between BiglyBT and uT when reading torrent files
-		// with "encoding" key
-		try {
-			byte[] bytes = FileUtil.readFileAsByteArray(_torrentFile);
-			Map<String, Object> existing_map = BDecoder.decode(bytes);
-			boolean hasEncoding = existing_map != null
-					&& existing_map.containsKey("encoding");
-			if (hasEncoding) {
-				String encoding = MapUtils.getMapString(existing_map, "encoding", "");
-				boolean hasNonUTF8Encoding = !encoding.equalsIgnoreCase("utf8")
-						&& !encoding.equalsIgnoreCase("utf-8");
-				if (hasNonUTF8Encoding) {
-					Map existing_info = (Map) existing_map.get("info");
-					List files = (List) existing_info.get("files");
-					if (files != null && files.size() > 0) {
-						boolean hasUTF8Path = (((Map) files.get(0)).containsKey(
-								"path.utf-8"));
-						if (hasUTF8Path) {
-							logInfo.append(
-									"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly").append(
-											NL);
-							existing_map.remove("encoding");
-							File tempTorrentFile = File.createTempFile("Migrate_", ".torrent",
-									AETemporaryFileHandler.getTempDirectory());
-							tempTorrentFile.deleteOnExit();
-							FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
-									BEncoder.encode(existing_map));
-							_torrentFile = tempTorrentFile;
+		if (_torrentFile.exists()) {
+
+			// Fixup discrepencies between BiglyBT and uT when reading torrent files
+			// with "encoding" key
+			try {
+				byte[] bytes = FileUtil.readFileAsByteArray(_torrentFile);
+				Map<String, Object> existing_map = BDecoder.decode(bytes);
+				boolean hasEncoding = existing_map != null
+						&& existing_map.containsKey("encoding");
+				if (hasEncoding) {
+					String encoding = MapUtils.getMapString(existing_map, "encoding", "");
+					boolean hasNonUTF8Encoding = !encoding.equalsIgnoreCase("utf8")
+							&& !encoding.equalsIgnoreCase("utf-8");
+					if (hasNonUTF8Encoding) {
+						Map existing_info = (Map) existing_map.get("info");
+						List files = (List) existing_info.get("files");
+						if (files != null && files.size() > 0) {
+							boolean hasUTF8Path = (((Map) files.get(0)).containsKey(
+									"path.utf-8"));
+							if (hasUTF8Path) {
+								logInfo.append(
+										"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly").append(
+												NL);
+								existing_map.remove("encoding");
+								File tempTorrentFile = File.createTempFile("Migrate_",
+										".torrent", AETemporaryFileHandler.getTempDirectory());
+								tempTorrentFile.deleteOnExit();
+								FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
+										BEncoder.encode(existing_map));
+								_torrentFile = tempTorrentFile;
+							}
 						}
 					}
 				}
+
+				torrent = TorrentUtils.readDelegateFromFile(_torrentFile, false);
+				torrentFile = _torrentFile;
+
+			} catch (Exception e) {
+				String absolutePath = _torrentFile.getAbsolutePath();
+				String s = e.getMessage();
+				s = Utils.wrapSubString(s, absolutePath);
+				s = Utils.wrapSubString(s, _torrentFile.getName());
+				logWarnings.append("Error reading ");
+				logWarnings.append(Utils.wrapString(absolutePath));
+				if (!absolutePath.equals(origTorrentFilePath)) {
+					logWarnings.append(" (Original path: ").append(
+							Utils.wrapString(origTorrentFilePath)).append(")");
+				}
+				logWarnings.append(": ").append(NL).append("\t");
+				logWarnings.append(s);
+				logWarnings.append(NL);
 			}
-
-			torrent = TorrentUtils.readDelegateFromFile(_torrentFile, false);
-			torrentFile = _torrentFile;
-
-		} catch (Exception e) {
-			String absolutePath = _torrentFile.getAbsolutePath();
-			String s = e.getMessage();
-			s = Utils.wrapSubString(s, absolutePath);
-			s = Utils.wrapSubString(s, _torrentFile.getName());
-			logWarnings.append("Error reading ");
-			logWarnings.append(Utils.wrapString(absolutePath));
-			logWarnings.append(": ").append(NL).append("\t");
-			logWarnings.append(s);
-			logWarnings.append(NL);
+		} else {
+			logWarnings.append("Could not find ").append(
+					Utils.wrapString(origTorrentFilePath)).append(". ");
+			if (!origTorrentFilePath.equals(_torrentFile.getAbsolutePath())) {
+				logWarnings.append("Also tried ").append(
+						Utils.wrapString(_torrentFile.getAbsolutePath())).append(". ");
+			}
+			logWarnings.append("Torrent will be skipped during migration").append(NL);
 		}
 
 		order = MapUtils.getMapLong(map, ResumeConstants.ORDER, 0);
@@ -1038,10 +1058,12 @@ public class TorrentImportInfo
 			if (fileLink != null && new File(fileLink).isFile()) {
 				continue;
 			}
+			// no link or link not a file, try relative path in default save path for torrent
 			String relativePath = file.getRelativePath();
 			if (new File(dirSavePath, relativePath).isFile()) {
 				continue;
 			}
+			// Still no file, try to find it
 			File foundFile = findFile(relativePath, dirSavePath, fileLength);
 			if (foundFile.isFile()) {
 				String existingFileLink = fileLinks.put(i, foundFile.getAbsolutePath());
@@ -1053,20 +1075,23 @@ public class TorrentImportInfo
 		}
 
 		if (mapNotFound.size() > 0) {
-			logWarnings.append("Could not find the following files: ");
+			logWarnings.append("Could not find the following files: ").append(NL);
 			boolean first = true;
 			boolean showNames = mapNotFound.size() <= 5;
 			for (int idx : mapNotFound.keySet()) {
 				if (first) {
 					first = false;
-				} else {
+				} else if (!showNames) {
 					logWarnings.append(", ");
+				}
+				if (showNames) {
+					logWarnings.append("\t");
 				}
 				logWarnings.append("#");
 				logWarnings.append(idx);
 				if (showNames) {
 					logWarnings.append(":");
-					logWarnings.append(Utils.wrapString(mapNotFound.get(idx)));
+					logWarnings.append(Utils.wrapString(mapNotFound.get(idx))).append(NL);
 				}
 			}
 			logWarnings.append(NL);

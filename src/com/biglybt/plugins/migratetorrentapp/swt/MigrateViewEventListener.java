@@ -19,6 +19,7 @@
 package com.biglybt.plugins.migratetorrentapp.swt;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -255,6 +256,21 @@ public class MigrateViewEventListener
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
 			boolean onlyWarningTorrents) {
 		StringBuilder sb = new StringBuilder();
+
+		if (!importer.canMigrate()) {
+			for (String s : importer.needsPathReplacement.keySet()) {
+				sb.append("Require folder replacement for paths starting with ").append(
+						s).append(NL);
+				String[] strings = importer.needsPathReplacement.get(s).toArray(
+						new String[0]);
+				Arrays.sort(strings);
+				for (String string : strings) {
+					sb.append("\t").append(string).append(NL);
+				}
+			}
+			return sb;
+		}
+
 		String nl = NL + "│ ";
 		String s;
 		sb.append("┌─────────────────────────────────────────────────").append(nl);

@@ -82,6 +82,8 @@ public class Importer_uTorrent
 
 	boolean hasRunProgramEnabled = false;
 
+	public final Map<String, HashSet<String>> needsPathReplacement = new HashMap<>();
+
 	public Importer_uTorrent(PluginInterface pi,
 			ConfigModel_uTorrent configModelInfo) {
 		super(pi);
@@ -114,7 +116,7 @@ public class Importer_uTorrent
 		for (String folderReplacement : folderReplacements) {
 			String[] split = folderReplacement.split("\\|", 2);
 			if (split.length == 2) {
-				mapFolderReplacements.put(split[0], split[1]);
+				mapFolderReplacements.put(split[0].toLowerCase(), split[1]);
 			}
 		}
 
@@ -347,14 +349,18 @@ public class Importer_uTorrent
 //					System.out.println(nestingLevel + "]: \"" + context
 //							+ "\" Map Decoded: " + map.size() + " entries");
 
-					context = replaceFolders(context);
-					File torrentFile = new File(context);
+					String torrentFileString = replaceFolders(context);
+					File torrentFile = new File(torrentFileString);
+					String origTorrentFilePath;
 					if (!torrentFile.isAbsolute()) {
 						torrentFile = new File(configModelInfo.paramBaseDir.getValue(),
-								context);
+								torrentFileString);
+						origTorrentFilePath = torrentFile.getAbsolutePath();
+					} else {
+						origTorrentFilePath = context;
 					}
 					TorrentImportInfo importInfo = new TorrentImportInfo(this,
-							torrentFile, context, map);
+							torrentFile, context, map, origTorrentFilePath);
 					if (importInfo.execOnComplete != null) {
 						hasRunProgramEnabled = true;
 					}
@@ -385,6 +391,7 @@ public class Importer_uTorrent
 		if (path.isEmpty()) {
 			return path;
 		}
+
 		String result;
 		char pathSeparator = detectDirSeparator(path);
 		if (pathSeparator != File.separatorChar) {
@@ -393,7 +400,7 @@ public class Importer_uTorrent
 			result = path;
 		}
 
-		if (!new File(result).isAbsolute()) {
+		if (isRelativeAnyOS(path)) {
 			return result;
 		}
 
@@ -402,12 +409,53 @@ public class Importer_uTorrent
 			if (lowerPath.startsWith(startsWith)) {
 				String replaceWith = mapFolderReplacements.get(startsWith);
 				result = replaceWith + path.substring(startsWith.length());
+				if (pathSeparator != File.separatorChar) {
+					result = result.replace(pathSeparator, File.separatorChar);
+				}
 				if (new File(result).exists()) {
 					break;
 				}
 			}
 		}
+		if (utDirSeparator == '\\' && path.length() > 2
+				&& result.substring(1, 3).equals(":/")) {
+			String drive = result.substring(0, 1).toUpperCase() + ":\\";
+			HashSet<String> paths = needsPathReplacement.get(drive);
+			if (paths == null) {
+				paths = new HashSet<>();
+				needsPathReplacement.put(drive, paths);
+			}
+			int lastSlashPos = result.lastIndexOf('/');
+			int lastDotPos = result.lastIndexOf('.');
+			String dir;
+			if (lastDotPos > lastSlashPos && lastSlashPos >= 0) {
+				dir = new File(result).getParent();
+			} else if (lastSlashPos == result.length() - 1) {
+				dir = result.substring(0, lastSlashPos);
+			} else {
+				dir = result;
+			}
+			dir = dir.substring(0, 1).toUpperCase() + dir.substring(1);
+			dir = dir.replace("/", "\\");
+			paths.add(dir);
+
+			result = result.substring(2);
+		}
 		return result;
+	}
+
+	private boolean isRelativeAnyOS(String path) {
+		boolean isAbsolute = new File(path).isAbsolute();
+		if (isAbsolute) {
+			return false;
+		}
+		if (path.length() > 2 && path.substring(1, 3).equals(":\\")) {
+			return false;
+		}
+		if (path.startsWith("/")) {
+			return false;
+		}
+		return true;
 	}
 
 	private static char detectDirSeparator(String path) {
@@ -417,7 +465,7 @@ public class Importer_uTorrent
 		if (path == null) {
 			return File.separatorChar;
 		}
-		if (path.length() > 2 && path.substring(1, 2).equalsIgnoreCase(":\\")) {
+		if (path.length() > 2 && path.substring(1, 3).equalsIgnoreCase(":\\")) {
 			utDirSeparator = '\\';
 			return utDirSeparator;
 		} else {
@@ -482,5 +530,9 @@ public class Importer_uTorrent
 		if (!requiredPlugins.contains(pluginID)) {
 			requiredPlugins.add(pluginID);
 		}
+	}
+
+	public boolean canMigrate() {
+		return needsPathReplacement.isEmpty();
 	}
 }

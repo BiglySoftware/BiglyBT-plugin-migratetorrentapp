@@ -653,15 +653,16 @@ public class SettingsImportInfo
 		boolean customSavePath = getFlag(Directories.DIR_ACTIVE_DOWNLOAD_FLAG,
 				false);
 		if (customSavePath) {
-			String savePath = importer.replaceFolders(MapUtils.getMapString(
-					utSettings, Directories.DIR_ACTIVE_DOWNLOAD, ""));
+			String origSavePath = MapUtils.getMapString(utSettings,
+					Directories.DIR_ACTIVE_DOWNLOAD, "");
+			String savePath = importer.replaceFolders(origSavePath);
 			if (savePath.length() > 0 && new File(savePath).isDirectory()) {
 				add(new DirectConfigMigrate().addPrivate(
 						Directories.DIR_ACTIVE_DOWNLOAD,
 						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath));
 			} else {
 				logWarnings.append("Invalid default save folder of ").append(
-						Utils.wrapString(savePath)).append(NL);
+						Utils.wrapString(origSavePath)).append(NL);
 			}
 		}
 
@@ -672,15 +673,16 @@ public class SettingsImportInfo
 		DirectConfigMigrate itemDirComplete = add(
 				new DirectConfigMigrate(Directories.DIR_COMPLETED_DOWNLOAD_FLAG,
 						BCFG_MOVE_COMPLETED_WHEN_DONE, moveOnComplete));
-		String moveOnCompletePath = importer.replaceFolders(MapUtils.getMapString(
-				utSettings, Directories.DIR_COMPLETED_DOWNLOAD, ""));
+		String origMoveOnCompletePath = MapUtils.getMapString(utSettings,
+				Directories.DIR_COMPLETED_DOWNLOAD, "");
+		String moveOnCompletePath = importer.replaceFolders(origMoveOnCompletePath);
 		if (moveOnCompletePath.length() > 0
 				&& new File(moveOnCompletePath).isDirectory()) {
 			itemDirComplete.addPrivate(Directories.DIR_COMPLETED_DOWNLOAD,
 					ConfigKeys.File.SCFG_COMPLETED_FILES_DIRECTORY, moveOnCompletePath);
 		} else if (moveOnComplete) {
-			logWarnings.append("Invalid default save folder of ").append(
-					Utils.wrapString(moveOnCompletePath)).append(NL);
+			logWarnings.append("Invalid move on complete folder of ").append(
+					Utils.wrapString(origMoveOnCompletePath)).append(NL);
 		}
 		if (moveOnComplete) {
 			boolean addLabel = getFlag(Directories.DIR_COMPLETED_ADD_LABEL, false);
@@ -708,8 +710,10 @@ public class SettingsImportInfo
 		if (saveTorrentFile) {
 			DirectConfigMigrate itemSaveTorrentFile = add(new DirectConfigMigrate());
 
+			String origSaveTorrentFileDir = MapUtils.getMapString(utSettings,
+					Directories.DIR_TORRENT_FILES, "");
 			String saveTorrentFileDir = importer.replaceFolders(
-					MapUtils.getMapString(utSettings, Directories.DIR_TORRENT_FILES, ""));
+					origSaveTorrentFileDir);
 			if (!saveTorrentFileDir.isEmpty()
 					&& new File(saveTorrentFileDir).isDirectory()) {
 				add(new DirectConfigMigrate().addPrivate(Directories.DIR_TORRENT_FILES,
@@ -717,7 +721,7 @@ public class SettingsImportInfo
 						saveTorrentFileDir));
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
-						Utils.wrapString(saveTorrentFileDir)).append(NL);
+						Utils.wrapString(origSaveTorrentFileDir)).append(NL);
 			}
 		}
 
