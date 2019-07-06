@@ -353,7 +353,7 @@ public class Importer_uTorrent
 					File torrentFile = new File(torrentFileString);
 					String origTorrentFilePath;
 					if (!torrentFile.isAbsolute()) {
-						torrentFile = new File(configModelInfo.paramBaseDir.getValue(),
+						torrentFile = new File(configModelInfo.paramConfigDir.getValue(),
 								torrentFileString);
 						origTorrentFilePath = torrentFile.getAbsolutePath();
 					} else {

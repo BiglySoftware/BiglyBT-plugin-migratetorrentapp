@@ -48,8 +48,6 @@ public class ConfigModel_uTorrent
 
 	public DirectoryParameter paramConfigDir;
 
-	public DirectoryParameter paramBaseDir;
-
 	public StringParameter paramDataDirsRecursive;
 
 	public StringParameter paramDataDirsSingle;
@@ -57,8 +55,6 @@ public class ConfigModel_uTorrent
 	public StringParameter paramTorrentDirs;
 
 	public StringParameter paramFolderReplacements;
-
-	private BooleanParameter paramBaseDirCustom;
 
 	private final List<MigrateListener> listeners = new ArrayList<>();
 
@@ -87,11 +83,6 @@ public class ConfigModel_uTorrent
 		paramConfigDir = configModel.addDirectoryParameter2("utConfigDir",
 				"utMigrate.configDir",
 				configDir == null ? "" : configDir.getAbsolutePath());
-		paramConfigDir.addConfigParameterListener(param -> {
-			if (!paramBaseDirCustom.getValue()) {
-				paramBaseDir.setValue(paramConfigDir.getValue());
-			}
-		});
 
 		LabelParameter paramConfigDirInfo = configModel.addLabelParameter2(
 				"utMigrate.configDir.info");
@@ -103,28 +94,6 @@ public class ConfigModel_uTorrent
 				"utShowAdditionalOptions", "utMigrate.showAdditionalFolders", false);
 
 		final List<Parameter> listToggle = new ArrayList<>();
-
-		////
-
-		paramBaseDirCustom = configModel.addBooleanParameter2("utBaseDirCustom",
-				"utMigrate.baseDir.custom", false);
-
-		paramBaseDir = configModel.addDirectoryParameter2("utBaseDir", "",
-				configDir == null ? "" : configDir.getAbsolutePath());
-
-		ParameterGroup groupBaseCustom = configModel.createGroup(null,
-				paramBaseDirCustom, paramBaseDir);
-		groupBaseCustom.setNumberOfColumns(2);
-
-		LabelParameter paramBaseDirInfo = configModel.addLabelParameter2(
-				"utMigrate.baseDir.info");
-		paramBaseDirInfo.setIndent(1, true);
-
-		ParameterGroup groupBaseDir = configModel.createGroup(null, groupBaseCustom,
-				paramBaseDirInfo);
-		listToggle.add(groupBaseDir);
-
-		paramBaseDirCustom.addEnabledOnSelection(paramBaseDir, paramBaseDirInfo);
 
 		////
 
