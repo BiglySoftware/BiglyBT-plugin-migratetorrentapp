@@ -1,7 +1,7 @@
 # BiglyBT Plugin - Migrate Torrent App
 
 ```
-This plugin is not yet functional
+This plugin is in alpha.  It's working but not widely tested.
 ```
 
 This BiglyBT plugin migrates uTorrent and BitTorrent client configurations and torrents to BiglyBT.
@@ -30,6 +30,12 @@ You will be able to review the changes before applying them.
 1. Scheduler
 1. Auto-Labels and Label-Directory Mappings
 
+#### Migration Options
+1. Scan additional directories for .torrent files
+1. Find moved files (handy if you organized your files outside of the client)
+1. Remap data directories (handy if you renamed or moved your base data directory)
+1. Cross platform migration (currently just Windows uT config -> Linux/Mac BiglyBT)
+
 #### Skipped, Not Supported and Migration Notes
 
 * "Enable DHT for new torrents" flag in uT will also change accepting peer sources from any plugin (including P2P)
@@ -53,4 +59,4 @@ You will be able to review the changes before applying them.
 * Disk Cache setting are not migrated
 * Column setup is not migrated
 * RSS Feeds are not migrated
-* Most uT settings listed in Preferences->Advanced are not migrated yet
+* Most uT settings listed in Preferences->Advanced are not migrated yet. The entries you changed manually will be listed during the analysis phase.

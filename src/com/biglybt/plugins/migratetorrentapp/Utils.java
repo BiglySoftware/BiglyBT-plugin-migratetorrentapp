@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 import org.gudy.bouncycastle.util.encoders.Base64;
 
 import com.biglybt.core.util.Constants;
+import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.RandomUtils;
 
 public class Utils
@@ -62,6 +63,9 @@ public class Utils
 	}
 
 	public static String wrapSubString(String s, String substring) {
+		if (substring == null) {
+			return s;
+		}
 		return s.replaceAll("\\Q" + substring + "\\E",
 				Matcher.quoteReplacement(PRIVWRAP[0] + substring + PRIVWRAP[1]));
 	}
@@ -91,6 +95,17 @@ public class Utils
 			sb.append(s, lastPos, s.length());
 			s = sb.toString();
 		} while (loop);
+		return s;
+	}
+
+	public static String getErrorAndHideStuff(Throwable t, String... hideStrings) {
+		String s = Debug.getNestedExceptionMessageAndStack(t);
+		if (hideStrings == null || hideStrings.length == 0) {
+			return s;
+		}
+		for (String hideString : hideStrings) {
+			s = wrapSubString(s, hideString);
+		}
 		return s;
 	}
 }

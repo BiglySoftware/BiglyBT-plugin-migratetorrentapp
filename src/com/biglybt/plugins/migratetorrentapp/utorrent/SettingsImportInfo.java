@@ -32,7 +32,6 @@ import com.biglybt.core.config.impl.ConfigurationDefaults;
 import com.biglybt.core.util.BDecoder;
 import com.biglybt.core.util.ByteFormatter;
 import com.biglybt.core.util.Constants;
-import com.biglybt.core.util.Debug;
 import com.biglybt.plugins.migratetorrentapp.Utils;
 import com.biglybt.plugins.migratetorrentapp.utorrent.SettingsConstants.Connection;
 import com.biglybt.plugins.migratetorrentapp.utorrent.SettingsConstants.*;
@@ -77,6 +76,12 @@ public class SettingsImportInfo
 		RememberedDecisionConfig.count = 0;
 
 		File fileSettings = new File(configDir, "settings.dat");
+		if (!fileSettings.isFile()) {
+			logWarnings.append("Could not find settings.dat in ").append(
+					Utils.wrapString(configDir.toString())).append(NL);
+			return;
+		}
+
 		try {
 			BufferedInputStream is;
 			is = new BufferedInputStream(new FileInputStream(fileSettings));
@@ -156,10 +161,8 @@ public class SettingsImportInfo
 			processPreferencesAdvanced();
 
 		} catch (Throwable t) {
-			logWarnings.append("Error Analyzing Settings : ").append(
-					Debug.getNestedExceptionMessageAndStack(t)).append(NL);
-			logWarnings.append("\t").append(
-					toDebugString().replaceAll(NL, NL + "\t"));
+			String err = Utils.getErrorAndHideStuff(t, fileSettings.toString());
+			logWarnings.append("Error Analyzing Settings : ").append(err).append(NL);
 		}
 
 		int totalMigrations = DirectConfigMigrate.count
@@ -1143,8 +1146,8 @@ public class SettingsImportInfo
 			try {
 				item.migrate();
 			} catch (Throwable t) {
-				sbMigrateLog.append("Error Migrating Setting : ").append(
-						Debug.getNestedExceptionMessageAndStack(t)).append(NL);
+				String err = Utils.getErrorAndHideStuff(t);
+				sbMigrateLog.append("Error Migrating Setting: ").append(err).append(NL);
 				sbMigrateLog.append("\t").append(
 						item.toDebugString().toString().replaceAll(NL, NL + "\t"));
 			}

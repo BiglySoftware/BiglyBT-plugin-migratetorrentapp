@@ -188,6 +188,11 @@ public class Importer_uTorrent
 			utDirSeparator = '\\';
 			return;
 		}
+
+		File defaultConfigDir = configModelInfo.getDefaultConfigDir();
+		if (defaultConfigDir != null && defaultConfigDir.equals(configDir)) {
+			utDirSeparator = pi.getUtilities().isWindows() ? '\\' : '/';
+		}
 	}
 
 	public void migrate() {
@@ -207,8 +212,8 @@ public class Importer_uTorrent
 				sbMigrateLog.append(results).append(NL);
 			}
 		} catch (Throwable t) {
-			sbMigrateLog.append("Error Migrating Settings: ").append(
-					Debug.getNestedExceptionMessageAndStack(t)).append(NL);
+			String err = Utils.getErrorAndHideStuff(t);
+			sbMigrateLog.append("Error Migrating Settings: ").append(err).append(NL);
 		}
 
 		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
@@ -277,9 +282,9 @@ public class Importer_uTorrent
 
 					tagToAddInfo.tag = tag;
 
-				} catch (Throwable e) {
-					sbMigrateLog.append("Error Migrating Tag: ").append(
-							Debug.getNestedExceptionMessageAndStack(e)).append(NL);
+				} catch (Throwable t) {
+					String err = Utils.getErrorAndHideStuff(t, tagToAddInfo.name);
+					sbMigrateLog.append("Error Migrating Tag: ").append(err).append(NL);
 					sbMigrateLog.append("\t").append(
 							tagToAddInfo.toDebugString().replaceAll(NL, NL + "\t"));
 				}
@@ -300,8 +305,8 @@ public class Importer_uTorrent
 					sbMigrateLog.append(NL);
 				}
 			} catch (Throwable t) {
-				sbMigrateLog.append("Error Migrating Torrent: ").append(
-						Debug.getNestedExceptionMessageAndStack(t)).append(NL);
+				String err = Utils.getErrorAndHideStuff(t, importInfo.dirSavePath);
+				sbMigrateLog.append("Error Migrating Torrent: ").append(err).append(NL);
 				sbMigrateLog.append("\t").append(
 						importInfo.toDebugString().replaceAll(NL, NL + "\t"));
 				sbMigrateLog.append(NL);
@@ -336,6 +341,13 @@ public class Importer_uTorrent
 	private void processResumeFile(File configDir) {
 		File fileResume = new File(configDir, "resume.dat");
 
+		if (!fileResume.isFile()) {
+			settingsImportInfo.logWarnings.append(
+					"Could not find resume.dat in ").append(
+							Utils.wrapString(configDir.toString())).append(NL);
+			return;
+		}
+
 		try {
 			BufferedInputStream is;
 			is = new BufferedInputStream(new FileInputStream(fileResume));
@@ -345,12 +357,14 @@ public class Importer_uTorrent
 				if (nestingLevel != 1) {
 					return;
 				}
+
+				String torrentFileString = replaceFolders(context);
+				File torrentFile = new File(torrentFileString);
+
 				try {
 //					System.out.println(nestingLevel + "]: \"" + context
 //							+ "\" Map Decoded: " + map.size() + " entries");
 
-					String torrentFileString = replaceFolders(context);
-					File torrentFile = new File(torrentFileString);
 					String origTorrentFilePath;
 					if (!torrentFile.isAbsolute()) {
 						torrentFile = new File(configModelInfo.paramConfigDir.getValue(),
@@ -366,8 +380,9 @@ public class Importer_uTorrent
 					}
 					listTorrentsToImport.add(importInfo);
 				} catch (Throwable t) {
-					t.printStackTrace();
-					loggerChannel.log(t);
+					String err = Utils.getErrorAndHideStuff(t, torrentFile.toString());
+					settingsImportInfo.logWarnings.append(
+							"Error analysing torrent entry: ").append(err).append(NL);
 				}
 				//System.out.println("--");
 
@@ -382,8 +397,9 @@ public class Importer_uTorrent
 			decoder.decodeStream(is, false);
 			is.close();
 		} catch (Throwable t) {
-			t.printStackTrace();
-			loggerChannel.log(t);
+			String err = Utils.getErrorAndHideStuff(t, fileResume.toString());
+			settingsImportInfo.logWarnings.append(
+					"Error Analysing resume.dat: ").append(err).append(NL);
 		}
 	}
 
@@ -419,6 +435,8 @@ public class Importer_uTorrent
 		}
 		if (utDirSeparator == '\\' && path.length() > 2
 				&& result.substring(1, 3).equals(":/")) {
+			// uT Config is Windows and referencing drive, but we are on non-windows
+			// Log
 			String drive = result.substring(0, 1).toUpperCase() + ":\\";
 			HashSet<String> paths = needsPathReplacement.get(drive);
 			if (paths == null) {
@@ -440,6 +458,25 @@ public class Importer_uTorrent
 			paths.add(dir);
 
 			result = result.substring(2);
+		} else if (utDirSeparator == '/' && result.startsWith("\\")) {
+			// uT Config is non-windows and referencing /, but we are windows and need a drive
+			HashSet<String> paths = needsPathReplacement.get("/");
+			if (paths == null) {
+				paths = new HashSet<>();
+				needsPathReplacement.put("/", paths);
+			}
+			int lastSlashPos = result.lastIndexOf('\\');
+			int lastDotPos = result.lastIndexOf('.');
+			String dir;
+			if (lastDotPos > lastSlashPos && lastSlashPos >= 0) {
+				dir = new File(result).getParent();
+			} else if (lastSlashPos == result.length() - 1) {
+				dir = result.substring(0, lastSlashPos);
+			} else {
+				dir = result;
+			}
+			dir = dir.replace("\\", "/");
+			paths.add(dir);
 		}
 		return result;
 	}

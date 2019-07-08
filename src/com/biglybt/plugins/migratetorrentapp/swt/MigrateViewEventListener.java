@@ -279,8 +279,12 @@ public class MigrateViewEventListener
 				String[] strings = importer.needsPathReplacement.get(s).toArray(
 						new String[0]);
 				Arrays.sort(strings);
-				for (String string : strings) {
+				for (int i = 0, stringsLength = strings.length; i < stringsLength && i < 10; i++) {
+					String string = strings[i];
 					sb.append("\t").append(string).append(NL);
+				}
+				if (strings.length > 10) {
+					sb.append("\t.. and ").append(strings.length - 10).append(" others");
 				}
 			}
 			return sb;
@@ -314,11 +318,18 @@ public class MigrateViewEventListener
 		sb.append("└──────────────────────────────────────────────────");
 		sb.append(NL).append(NL);
 
-		sb.append("Tags").append(NL);
-		sb.append("----").append(NL);
-		for (TagToAddInfo value : importer.mapTagsToAdd.values()) {
-			sb.append(value.toDebugString()).append(NL);
+		sb.append("┌─────────────────────────────────────────────────").append(nl);
+		sb.append("Tags").append(nl);
+		sb.append("----");
+		if (importer.mapTagsToAdd.size() == 0) {
+			sb.append(nl).append("No labels found to import as tags");
 		}
+		for (TagToAddInfo value : importer.mapTagsToAdd.values()) {
+			sb.append(nl);
+			sb.append(value.toDebugString());
+		}
+		sb.append(NL);
+		sb.append("└──────────────────────────────────────────────────");
 		return sb;
 	}
 

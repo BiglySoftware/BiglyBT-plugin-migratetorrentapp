@@ -720,10 +720,11 @@ public class TorrentImportInfo
 					InetSocketAddress socketAddress = new InetSocketAddress(address,
 							((port[0] & 0xff)) << 8 | (port[1] & 0xff));
 					peers.add(socketAddress);
-				} catch (Throwable e) {
+				} catch (Throwable t) {
+					String err = Utils.getErrorAndHideStuff(t);
 					logWarnings.append("Bad Peer: ").append(
 							ByteFormatter.nicePrint(peer6, true)).append("; ").append(
-									Debug.getNestedExceptionMessageAndStack(e)).append(NL);
+									err).append(NL);
 				}
 			}
 		}
@@ -1217,7 +1218,8 @@ public class TorrentImportInfo
 					pieceBitsPos++;
 				}
 			} catch (Throwable t) {
-				logWarnings.append(Debug.getNestedExceptionMessageAndStack(t));
+				String err = Utils.getErrorAndHideStuff(t);
+				logWarnings.append(err);
 			}
 		}
 	}
@@ -1498,10 +1500,10 @@ public class TorrentImportInfo
 			try {
 				TorrentUtils.writeToFile(torrent);
 
-			} catch (Throwable e) {
+			} catch (Throwable t) {
+				String err = Utils.getErrorAndHideStuff(t);
 				sbMigrateLog.append("Error setting trackers for torrent. ");
-				sbMigrateLog.append(Debug.getNestedExceptionMessageAndStack(e)).append(
-						NL);
+				sbMigrateLog.append(err).append(NL);
 			}
 		}
 

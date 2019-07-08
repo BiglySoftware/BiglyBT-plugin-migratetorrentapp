@@ -79,7 +79,7 @@ public class ConfigModel_uTorrent
 	private void buildConfigModel(UIManager uiManager) {
 		configModel = uiManager.createBasicPluginConfigModel("utMigrate.title");
 
-		File configDir = getConfigDir();
+		File configDir = getDefaultConfigDir();
 		paramConfigDir = configModel.addDirectoryParameter2("utConfigDir",
 				"utMigrate.configDir",
 				configDir == null ? "" : configDir.getAbsolutePath());
@@ -236,16 +236,20 @@ public class ConfigModel_uTorrent
 		return this;
 	}
 
-	private File getConfigDir() {
-		File dir;
+	File getDefaultConfigDir() {
+		File dir = null;
 		if (pi.getUtilities().isWindows()) {
 			dir = getConfigDir_Windows();
-			if (dir != null) {
-				return dir;
-			}
+		} else if (pi.getUtilities().isOSX()) {
+			dir = getConfigDir_OSX();
 		}
 
-		return null;
+		return dir;
+	}
+
+	private File getConfigDir_OSX() {
+		return new File(System.getProperty("user.home")
+				+ "/Library/Application Support/uTorrent");
 	}
 
 	private static File getConfigDir_Windows() {
