@@ -35,8 +35,14 @@ import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 
 public class ConfigModel_uTorrent
 {
+
 	public interface MigrateListener
 	{
+		void initMigrateListener();
+
+		default void analysisStatus(String status) {
+		}
+
 		void analysisComplete(Importer_uTorrent importer_uTorrent);
 
 		void migrationComplete(String migrateLog);
@@ -47,6 +53,8 @@ public class ConfigModel_uTorrent
 	private BasicPluginConfigModel configModel;
 
 	public DirectoryParameter paramConfigDir;
+
+	public BooleanParameter paramShowAdditionalOptions;
 
 	public StringParameter paramDataDirsRecursive;
 
@@ -61,6 +69,7 @@ public class ConfigModel_uTorrent
 	private MigrateTorrentAppUI appUI;
 
 	private ActionParameter actionMigrate;
+
 	private Importer_uTorrent importer;
 
 	public ConfigModel_uTorrent(PluginInterface pi) {
@@ -90,7 +99,7 @@ public class ConfigModel_uTorrent
 
 		configModel.createGroup(null, paramConfigDir, paramConfigDirInfo);
 
-		BooleanParameter paramShowAdditionalOptions = configModel.addBooleanParameter2(
+		paramShowAdditionalOptions = configModel.addBooleanParameter2(
 				"utShowAdditionalOptions", "migrateapp.showAdditionalFolders", false);
 
 		final List<Parameter> listToggle = new ArrayList<>();
@@ -187,8 +196,15 @@ public class ConfigModel_uTorrent
 				"migrateapp.button.analyze");
 		paramAnalyze.addConfigParameterListener(param -> {
 			paramAnalyze.setEnabled(false);
+			for (MigrateListener listener : listeners) {
+				listener.initMigrateListener();
+			}
 			importer = new Importer_uTorrent(pi, this);
 			MigrateListener l = new MigrateListener() {
+				@Override
+				public void initMigrateListener() {
+				}
+
 				@Override
 				public void analysisComplete(Importer_uTorrent importer) {
 					removeListener(this);
@@ -215,6 +231,11 @@ public class ConfigModel_uTorrent
 		actionMigrate.addConfigParameterListener(param -> {
 			actionMigrate.setEnabled(false);
 			MigrateListener l = new MigrateListener() {
+				@Override
+				public void initMigrateListener() {
+
+				}
+
 				@Override
 				public void analysisComplete(Importer_uTorrent importer) {
 				}
@@ -289,6 +310,13 @@ public class ConfigModel_uTorrent
 			return;
 		}
 		listeners.add(l);
+	}
+
+	public void analysisStatus(String s) {
+		MigrateListener[] listeners = getListeners();
+		for (MigrateListener listener : listeners) {
+			listener.analysisStatus(s);
+		}
 	}
 
 	public void removeListener(MigrateListener l) {

@@ -250,6 +250,7 @@ public class TorrentImportInfo
 		String relativeFilename = file.getName();
 		boolean differs = !relativeFilename.equals(relativeOrAbsoluteFile);
 
+		// TODO: Takes forever. should build files only once and scan
 		for (String dataDir : importer.mapAdditionalDataDirs.keySet()) {
 			Boolean recursive = importer.mapAdditionalDataDirs.get(dataDir);
 			if (recursive != null && recursive) {
@@ -284,6 +285,7 @@ public class TorrentImportInfo
 			return null;
 		}
 
+		// TODO: Takes forever. Do only once
 		File[] dirs = path.listFiles(File::isDirectory);
 		if (dirs == null) {
 			return null;

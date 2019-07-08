@@ -88,6 +88,8 @@ public class Importer_uTorrent
 			ConfigModel_uTorrent configModelInfo) {
 		super(pi);
 
+		configModelInfo.analysisStatus("Initializing analysis");
+
 		this.configModelInfo = configModelInfo;
 		String[] dirsSingle = configModelInfo.paramDataDirsSingle.getValue().split(
 				"[\\r\\n]+");
@@ -129,6 +131,12 @@ public class Importer_uTorrent
 		gm = CoreFactory.getSingleton().getGlobalManager();
 
 		for (String listTorrentDir : listAdditionalTorrentDirs) {
+			if (listTorrentDir.isEmpty()) {
+				continue;
+			}
+			configModelInfo.analysisStatus(
+					"Scanning Additional Torrent Directory " + listTorrentDir);
+
 			File[] files = new File(listTorrentDir).listFiles(pathname -> {
 				if (pathname.length() > 1024L * 1024 * 32) {
 					// Skip files larger than 32M
@@ -139,6 +147,9 @@ public class Importer_uTorrent
 			if (files == null) {
 				continue;
 			}
+			configModelInfo.analysisStatus("Scanning " + files.length
+					+ " .torrent files found in additional torrent directories "
+					+ listTorrentDir);
 			for (File file : files) {
 				try {
 					ExtendedTorrent torrent = TorrentUtils.readDelegateFromFile(file,
@@ -157,10 +168,16 @@ public class Importer_uTorrent
 
 		detectUTOS(configDir);
 
+		configModelInfo.analysisStatus("Analyzing uT Settings");
+
 		settingsImportInfo = new SettingsImportInfo(this);
 		settingsImportInfo.processSettings(configDir);
 
+		configModelInfo.analysisStatus("Analyzing uT Torrents");
+
 		processResumeFile(configDir);
+
+		configModelInfo.analysisStatus("");
 
 		///////////
 
@@ -172,6 +189,8 @@ public class Importer_uTorrent
 		}
 
 		Collections.sort(listTorrentsToImport);
+
+		configModelInfo.analysisStatus("Done Analysis");
 
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
@@ -192,7 +211,10 @@ public class Importer_uTorrent
 		File defaultConfigDir = configModelInfo.getDefaultConfigDir();
 		if (defaultConfigDir != null && defaultConfigDir.equals(configDir)) {
 			utDirSeparator = pi.getUtilities().isWindows() ? '\\' : '/';
+			return;
 		}
+
+		utDirSeparator = 0;
 	}
 
 	public void migrate() {
@@ -373,8 +395,12 @@ public class Importer_uTorrent
 					} else {
 						origTorrentFilePath = context;
 					}
+					configModelInfo.analysisStatus("Analyzing Torrent: " + context);
+
 					TorrentImportInfo importInfo = new TorrentImportInfo(this,
 							torrentFile, context, map, origTorrentFilePath);
+
+					configModelInfo.analysisStatus("");
 					if (importInfo.execOnComplete != null) {
 						hasRunProgramEnabled = true;
 					}
@@ -382,7 +408,7 @@ public class Importer_uTorrent
 				} catch (Throwable t) {
 					String err = Utils.getErrorAndHideStuff(t, torrentFile.toString());
 					settingsImportInfo.logWarnings.append(
-							"Error analysing torrent entry: ").append(err).append(NL);
+							"Error analyzing torrent entry: ").append(err).append(NL);
 				}
 				//System.out.println("--");
 
@@ -399,7 +425,7 @@ public class Importer_uTorrent
 		} catch (Throwable t) {
 			String err = Utils.getErrorAndHideStuff(t, fileResume.toString());
 			settingsImportInfo.logWarnings.append(
-					"Error Analysing resume.dat: ").append(err).append(NL);
+					"Error Analyzing resume.dat: ").append(err).append(NL);
 		}
 	}
 

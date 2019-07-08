@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.biglybt.pif.ui.config.ParameterListener;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.graphics.Point;
@@ -79,6 +80,10 @@ public class MigrateViewEventListener
 
 	private boolean goingToRecalcSC;
 
+	private Label lblStatus;
+
+	private ParameterListener paramSAOListener;
+
 	@Override
 	public boolean eventOccurred(UISWTViewEvent event) {
 		switch (event.getType()) {
@@ -113,6 +118,11 @@ public class MigrateViewEventListener
 	}
 
 	private void delete() {
+		if (configModelInfo != null) {
+			configModelInfo.paramShowAdditionalOptions.removeListener(
+					paramSAOListener);
+			configModelInfo.removeListener(this);
+		}
 	}
 
 	private void initialize(Composite parent) {
@@ -140,7 +150,7 @@ public class MigrateViewEventListener
 		composite.setLayoutData(gridData);
 
 		GridLayout gridLayout = new GridLayout(2, false);
-		gridLayout.verticalSpacing = 20;
+		gridLayout.verticalSpacing = 10;
 		composite.setLayout(gridLayout);
 
 		Label label = new Label(composite, SWT.BORDER);
@@ -173,11 +183,20 @@ public class MigrateViewEventListener
 
 		////
 
+		lblStatus = new Label(composite, SWT.WRAP);
+		lblStatus.setLayoutData(
+				Utils.getWrappableLabelGridData(2, GridData.FILL_HORIZONTAL));
+
 		cResultsArea = new Composite(composite, SWT.NONE);
 		gridData = new GridData(GridData.FILL_HORIZONTAL);
 		gridData.horizontalSpan = 2;
 		cResultsArea.setLayoutData(gridData);
 		cResultsArea.setLayout(new GridLayout());
+
+		paramSAOListener = param -> {
+			recalcScrolledComposite();
+		};
+		configModelInfo.paramShowAdditionalOptions.addListener(paramSAOListener);
 
 		configModelInfo.addListener(this);
 	}
@@ -253,6 +272,26 @@ public class MigrateViewEventListener
 		goingToRecalcSC = false;
 	}
 
+	@Override
+	public void initMigrateListener() {
+		// not needed after 2001
+		Utils.execSWTThread(() -> {
+			cResultsArea.forceFocus();
+			Utils.disposeComposite(cResultsArea, false);
+		}, false);
+	}
+
+	@Override
+	public void analysisStatus(String status) {
+		Utils.execSWTThread(() -> {
+			if (lblStatus == null || lblStatus.isDisposed()) {
+				return;
+			}
+			lblStatus.setText(status);
+			lblStatus.requestLayout();
+		});
+	}
+
 	public void analysisComplete(Importer_uTorrent importer) {
 		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents);
 		Utils.execSWTThread(() -> {
@@ -279,12 +318,15 @@ public class MigrateViewEventListener
 				String[] strings = importer.needsPathReplacement.get(s).toArray(
 						new String[0]);
 				Arrays.sort(strings);
-				for (int i = 0, stringsLength = strings.length; i < stringsLength && i < 10; i++) {
+				int maxToShow = 20;
+				for (int i = 0, stringsLength = strings.length; i < stringsLength
+						&& i < maxToShow; i++) {
 					String string = strings[i];
 					sb.append("\t").append(string).append(NL);
 				}
-				if (strings.length > 10) {
-					sb.append("\t.. and ").append(strings.length - 10).append(" others");
+				if (strings.length > maxToShow) {
+					sb.append("\t.. and ").append(strings.length - maxToShow).append(
+							" others");
 				}
 			}
 			return sb;
