@@ -46,7 +46,7 @@ public class RememberedDecisionConfig
 	}
 
 	@Override
-	public StringBuilder toDebugString() {
+	public StringBuilder toDebugString(boolean showOnlyChanged) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(utKey).append("(").append(utValue).append(
 				") -> RememberID:").append(rememberID).append("(").append(value).append(

@@ -70,7 +70,16 @@ public class Importer_uTorrent
 	/**
 	 * Map&lt;Path, Search Recursive>
 	 */
-	final Map<String, Boolean> mapAdditionalDataDirs = new HashMap<>();
+	private final Map<String, Boolean> mapAdditionalDataDirs = new HashMap<>();
+
+	/**
+	 * Includes subdirs when recursive is set
+	 */
+	final List<File> listAdditionalDataDirs = new ArrayList<>();
+
+	final Map<Long, List<File>> mapFileSizeToScannedFile = new HashMap<>();
+
+	final Map<String, List<File>> mapFilenameToScannedFile = new HashMap<>();
 
 	final Map<String, File> mapInfoHashToFile = new HashMap<>();
 
@@ -173,7 +182,12 @@ public class Importer_uTorrent
 		settingsImportInfo = new SettingsImportInfo(this);
 		settingsImportInfo.processSettings(configDir);
 
-		configModelInfo.analysisStatus("Analyzing uT Torrents");
+		configModelInfo.analysisStatus("Analyzing Scan Directories");
+
+		buildAdditionalDataDirs();
+
+
+			configModelInfo.analysisStatus("Analyzing uT Torrents");
 
 		processResumeFile(configDir);
 
@@ -195,6 +209,33 @@ public class Importer_uTorrent
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
 			l.analysisComplete(this);
+		}
+	}
+
+	private void buildAdditionalDataDirs() {
+		for (String dataDir : mapAdditionalDataDirs.keySet()) {
+			Boolean recursive = mapAdditionalDataDirs.get(dataDir);
+
+			configModelInfo.analysisStatus("Analyzing Scan Directory " + dataDir);
+			addDataDirFiles(new File(dataDir), recursive);
+		}
+	}
+
+	private void addDataDirFiles(File dir, Boolean recursive) {
+		if (!dir.isDirectory()) {
+			return;
+		}
+		listAdditionalDataDirs.add(dir);
+		File[] files = dir.listFiles();
+		for (File file : files) {
+			if (file.isFile()) {
+				List<File> filesWithSize = mapFileSizeToScannedFile.putIfAbsent(file.length(), new ArrayList<>());
+				filesWithSize.add(file);
+				List<File> filesWithName = mapFilenameToScannedFile.putIfAbsent(file.getName(), new ArrayList<>());
+				filesWithName.add(file);
+			} else if (recursive && file.isDirectory()) {
+				addDataDirFiles(file, true);
+			}
 		}
 	}
 
@@ -323,14 +364,14 @@ public class Importer_uTorrent
 									"Migration Log:").append(NL);
 					sbMigrateLog.append(results).append(NL).append("\t");
 					sbMigrateLog.append(
-							importInfo.toDebugString().replaceAll(NL, NL + "\t"));
+							importInfo.toDebugString(true).replaceAll(NL, NL + "\t"));
 					sbMigrateLog.append(NL);
 				}
 			} catch (Throwable t) {
 				String err = Utils.getErrorAndHideStuff(t, importInfo.dirSavePath);
 				sbMigrateLog.append("Error Migrating Torrent: ").append(err).append(NL);
 				sbMigrateLog.append("\t").append(
-						importInfo.toDebugString().replaceAll(NL, NL + "\t"));
+						importInfo.toDebugString(true).replaceAll(NL, NL + "\t"));
 				sbMigrateLog.append(NL);
 			}
 		}
@@ -382,13 +423,12 @@ public class Importer_uTorrent
 
 				String torrentFileString = replaceFolders(context);
 				File torrentFile = new File(torrentFileString);
+				boolean isMagnet = torrentFileString.startsWith("magnet:")
+						&& !torrentFileString.endsWith(".torrent");
 
 				try {
-//					System.out.println(nestingLevel + "]: \"" + context
-//							+ "\" Map Decoded: " + map.size() + " entries");
-
 					String origTorrentFilePath;
-					if (!torrentFile.isAbsolute()) {
+					if (!torrentFile.isAbsolute() && !isMagnet) {
 						torrentFile = new File(configModelInfo.paramConfigDir.getValue(),
 								torrentFileString);
 						origTorrentFilePath = torrentFile.getAbsolutePath();
@@ -400,6 +440,13 @@ public class Importer_uTorrent
 					TorrentImportInfo importInfo = new TorrentImportInfo(this,
 							torrentFile, context, map, origTorrentFilePath);
 
+					if (isMagnet) {
+						importInfo.logWarnings.setLength(0);
+						importInfo.logWarnings.append(
+								"Torrent entry is actually a magnet URI. Skipping ").append(
+										Utils.wrapString(torrentFileString)).append(NL);
+					}
+
 					configModelInfo.analysisStatus("");
 					if (importInfo.execOnComplete != null) {
 						hasRunProgramEnabled = true;
@@ -410,15 +457,8 @@ public class Importer_uTorrent
 					settingsImportInfo.logWarnings.append(
 							"Error analyzing torrent entry: ").append(err).append(NL);
 				}
-				//System.out.println("--");
-
 				// Reduce memory usage
 				map.clear();
-//				for (String key : map.keySet()) {
-//					System.out.println(key);
-//					System.out.println("-> " + map.get(key));
-//				}
-//				System.out.println("--");
 			});
 			decoder.decodeStream(is, false);
 			is.close();
@@ -432,6 +472,10 @@ public class Importer_uTorrent
 	String replaceFolders(String path) {
 		if (path.isEmpty()) {
 			return path;
+		}
+
+		if (path.startsWith("~/")) {
+			path = System.getProperty("user.home") + path.substring(1);
 		}
 
 		String result;

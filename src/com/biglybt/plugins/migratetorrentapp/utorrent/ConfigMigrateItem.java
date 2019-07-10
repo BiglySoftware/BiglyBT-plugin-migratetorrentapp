@@ -19,7 +19,7 @@
 package com.biglybt.plugins.migratetorrentapp.utorrent;
 
 public interface ConfigMigrateItem {
-	StringBuilder toDebugString();
+	StringBuilder toDebugString(boolean showOnlyChanged);
 
 	void migrate();
 }

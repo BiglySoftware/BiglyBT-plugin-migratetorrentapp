@@ -201,10 +201,16 @@ public class SettingsImportInfo
 
 		Field[] fields = adv.class.getFields();
 		boolean first = true;
+		HashSet<String> keysToSkip = new HashSet<String>(
+				Arrays.asList("bt.no_connect_to_services_list", "isp.primary_dns",
+						"isp.secondary_dns"));
 		for (Field field : fields) {
 			try {
 				Object o = field.get(null);
 				if (o instanceof String) {
+					if (keysToSkip.contains(o)) {
+						continue;
+					}
 					if (utSettings.containsKey((o))) {
 						if (first) {
 							logWarnings.append(NL);
@@ -1118,7 +1124,7 @@ public class SettingsImportInfo
 		}
 	}
 
-	public String toDebugString() {
+	public String toDebugString(boolean showOnlyChanged) {
 		StringBuilder sb = new StringBuilder();
 		if (logWarnings.length() > 0) {
 			sb.append(NL).append("Config Warnings").append(NL);
@@ -1129,7 +1135,7 @@ public class SettingsImportInfo
 		sb.append("Config Migrations").append(NL);
 		sb.append("-----------------").append(NL);
 		for (ConfigMigrateItem item : listConfigMigrations) {
-			sb.append(item.toDebugString());
+			sb.append(item.toDebugString(showOnlyChanged));
 		}
 
 		if (logInfo.length() > 0) {
@@ -1149,7 +1155,7 @@ public class SettingsImportInfo
 				String err = Utils.getErrorAndHideStuff(t);
 				sbMigrateLog.append("Error Migrating Setting: ").append(err).append(NL);
 				sbMigrateLog.append("\t").append(
-						item.toDebugString().toString().replaceAll(NL, NL + "\t"));
+						item.toDebugString(false).toString().replaceAll(NL, NL + "\t"));
 			}
 		}
 		return sbMigrateLog;

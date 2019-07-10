@@ -53,21 +53,28 @@ public class DirectConfigMigrate
 			this.privateValues = privateValues;
 		}
 
-		public StringBuilder toDebugString() {
+		public StringBuilder toDebugString(boolean showOnlyChanged) {
 			StringBuilder sb = new StringBuilder();
 
-			sb.append(isAlreadyValue() ? "[Same] " : "[Change] ");
+			boolean alreadyValue = isAlreadyValue();
+			if (showOnlyChanged && alreadyValue) {
+				return sb;
+			}
+			sb.append(alreadyValue ? "[Same] " : "[Change] ");
 			if (utKey == null) {
 				sb.append("-> ").append(biglyKey).append("(").append(biglyValue).append(
 						")").append(NL);
 			} else {
-				sb.append(utKey).append("(");
-				if (privateValues) {
-					sb.append(Utils.wrapString("" + utValue));
-				} else {
-					sb.append(utValue);
+				if (utValue != null && !utValue.equals(biglyValue)) {
+					sb.append(utKey).append("(");
+					if (privateValues) {
+						sb.append(Utils.wrapString("" + utValue));
+					} else {
+						sb.append(utValue);
+					}
+					sb.append(") ");
 				}
-				sb.append(") -> ");
+				sb.append("-> ");
 				sb.append(biglyKey);
 				sb.append("(");
 				if (privateValues) {
@@ -142,9 +149,9 @@ public class DirectConfigMigrate
 	}
 
 	@Override
-	public StringBuilder toDebugString() {
+	public StringBuilder toDebugString(boolean showOnlyChanged) {
 		StringBuilder sb = new StringBuilder();
-		boolean indent = configChanges.size() > 1;
+		boolean indent = configChanges.size() > 1 && !showOnlyChanged;
 		if (indent) {
 			sb.append("Group of ").append(configChanges.size()).append(NL);
 		}
@@ -152,7 +159,7 @@ public class DirectConfigMigrate
 			if (indent) {
 				sb.append("\t");
 			}
-			sb.append(change.toDebugString());
+			sb.append(change.toDebugString(showOnlyChanged));
 		}
 		return sb;
 	}
@@ -160,7 +167,9 @@ public class DirectConfigMigrate
 	@Override
 	public void migrate() {
 		for (ConfigChange configChange : configChanges) {
-			setParameter(configChange.biglyKey, configChange.biglyValue);
+			if (!configChange.isAlreadyValue()) {
+				setParameter(configChange.biglyKey, configChange.biglyValue);
+			}
 		}
 	}
 

@@ -249,54 +249,43 @@ public class TorrentImportInfo
 
 		String relativeFilename = file.getName();
 		boolean differs = !relativeFilename.equals(relativeOrAbsoluteFile);
-
-		// TODO: Takes forever. should build files only once and scan
-		for (String dataDir : importer.mapAdditionalDataDirs.keySet()) {
-			Boolean recursive = importer.mapAdditionalDataDirs.get(dataDir);
-			if (recursive != null && recursive) {
-				file = lookForFile(relativeFilename, new File(dataDir), requiredSize);
-			} else {
-				// because relativeFilename might be "foo.wmv", but
-				// relativeOrAbsoluteFile might be "bar/foo.wmv"
-				if (differs) {
-					file = new File(dataDir, relativeOrAbsoluteFile);
-					if (existsAndSizeOrZero(file, requiredSize)) {
-						return file;
+		
+		if (differs) {
+			// because relativeFilename might be "foo.wmv", but
+			// relativeOrAbsoluteFile might be "bar/foo.wmv"
+			for (File dir : importer.listAdditionalDataDirs) {
+				file = new File(dir, relativeOrAbsoluteFile);
+				if (existsAndSizeOrZero(file, requiredSize)) {
+					return file;
+				}
+			}
+		}
+		
+		if (requiredSize > 0) {
+			List<File> files = importer.mapFileSizeToScannedFile.get(requiredSize);
+			if (files != null) {
+				for (File fileMatchingSize : files) {
+					if (fileMatchingSize.getName().equals(relativeFilename)) {
+						return fileMatchingSize;
 					}
 				}
-				file = new File(dataDir, relativeFilename);
-			}
-			if (existsAndSizeOrZero(file, requiredSize)) {
-				return file;
 			}
 		}
+
+		List<File> files = importer.mapFilenameToScannedFile.get(relativeFilename);
+		if (files != null) {
+			// We could also pick the file with a size smaller than requiredSize, 
+			// since it might be a partial file due to skipped state and overlapping 
+			// piece usage, but that sounds dangerous without more logic
+			for (File fileMatchingName : files) {
+				if (fileMatchingName.length() == 0) {
+					return fileMatchingName;
+				}
+			}
+		}
+
 		return originalAbsolute ? new File(relativeOrAbsoluteFile)
 				: new File(basePath, relativeFilename);
-	}
-
-	static File lookForFile(String relativeOrAbsoluteFile, File path,
-			long requiredSize) {
-		File file = new File(path, relativeOrAbsoluteFile);
-		if (existsAndSizeOrZero(file, requiredSize)) {
-			return file;
-		}
-
-		if (!path.isDirectory()) {
-			return null;
-		}
-
-		// TODO: Takes forever. Do only once
-		File[] dirs = path.listFiles(File::isDirectory);
-		if (dirs == null) {
-			return null;
-		}
-		for (File dir : dirs) {
-			file = lookForFile(relativeOrAbsoluteFile, dir, requiredSize);
-			if (file != null) {
-				return file;
-			}
-		}
-		return null;
 	}
 
 	public String getName() {
@@ -313,7 +302,7 @@ public class TorrentImportInfo
 		return torrent != null;
 	}
 
-	public String toDebugString() {
+	public String toDebugString(boolean showFullDetails) {
 		StringBuilder sb = new StringBuilder();
 		if (order >= 0) {
 			sb.append("Incomplete ");
@@ -351,25 +340,27 @@ public class TorrentImportInfo
 			sb.append(torrent.getFileCount()).append(" files, ");
 		}
 
-		if (tags.size() == 0) {
-			sb.append("No Tags").append(NL);
-		} else {
-			int numTags = 0;
-			StringBuilder sbTags = new StringBuilder();
-			for (TagToAddInfo tagToAddInfo : tags.keySet()) {
-				if (tagToAddInfo == null) {
-					continue;
+		if (showFullDetails) {
+			if (tags.size() == 0) {
+				sb.append("No Tags").append(NL);
+			} else {
+				int numTags = 0;
+				StringBuilder sbTags = new StringBuilder();
+				for (TagToAddInfo tagToAddInfo : tags.keySet()) {
+					if (tagToAddInfo == null) {
+						continue;
+					}
+					if (numTags > 0) {
+						sbTags.append(", ");
+					}
+					Utils.wrapString(sbTags, tagToAddInfo.name);
+					numTags++;
 				}
-				if (numTags > 0) {
-					sbTags.append(", ");
-				}
-				Utils.wrapString(sbTags, tagToAddInfo.name);
-				numTags++;
+				sb.append(numTags);
+				sb.append(" Tags: ");
+				sb.append(sbTags);
+				sb.append(NL);
 			}
-			sb.append(numTags);
-			sb.append(" Tags: ");
-			sb.append(sbTags);
-			sb.append(NL);
 		}
 
 		if (order < 0) {
@@ -382,7 +373,7 @@ public class TorrentImportInfo
 			}
 
 		} else {
-			if (pieceStates != null) {
+			if (pieceStates != null && showFullDetails) {
 				int numDonePieces = 0;
 				int numStartedPieces = 0;
 				int numPiecesNeedRecheck = 0;
@@ -420,40 +411,42 @@ public class TorrentImportInfo
 			}
 		}
 
-		if (downSpeed > 0) {
-			sb.append("Limit download speed to ").append(
-					DisplayFormatters.formatByteCountToKiBEtcPerSec(downSpeed)).append(
-							NL);
-		}
-		if (upSpeed > 0) {
-			sb.append("Limit upload speed to ").append(
-					DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(NL);
-		}
-
-		if (mapDMStateParam.size() > 0) {
-			sb.append("States: ").append(NL);
-			for (String key : mapDMStateParam.keySet()) {
-				Object val = mapDMStateParam.get(key);
-				sb.append('\t').append(key).append(": ");
-				if (val instanceof String) {
-					sb.append(Utils.wrapString((String) val));
-				} else {
-					sb.append(val);
-				}
-				sb.append(NL);
+		if (showFullDetails) {
+			if (downSpeed > 0) {
+				sb.append("Limit download speed to ").append(
+						DisplayFormatters.formatByteCountToKiBEtcPerSec(downSpeed)).append(
+								NL);
 			}
-		}
-		if (mapDMStateAttr.size() > 0) {
-			sb.append("Attributes: ").append(NL);
-			for (String key : mapDMStateAttr.keySet()) {
-				Object val = mapDMStateAttr.get(key);
-				sb.append('\t').append(key).append(": ");
-				if (val instanceof String) {
-					sb.append(Utils.wrapString((String) val));
-				} else {
-					sb.append(val);
+			if (upSpeed > 0) {
+				sb.append("Limit upload speed to ").append(
+						DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(NL);
+			}
+
+			if (mapDMStateParam.size() > 0) {
+				sb.append("States: ").append(NL);
+				for (String key : mapDMStateParam.keySet()) {
+					Object val = mapDMStateParam.get(key);
+					sb.append('\t').append(key).append(": ");
+					if (val instanceof String) {
+						sb.append(Utils.wrapString((String) val));
+					} else {
+						sb.append(val);
+					}
+					sb.append(NL);
 				}
-				sb.append(NL);
+			}
+			if (mapDMStateAttr.size() > 0) {
+				sb.append("Attributes: ").append(NL);
+				for (String key : mapDMStateAttr.keySet()) {
+					Object val = mapDMStateAttr.get(key);
+					sb.append('\t').append(key).append(": ");
+					if (val instanceof String) {
+						sb.append(Utils.wrapString((String) val));
+					} else {
+						sb.append(val);
+					}
+					sb.append(NL);
+				}
 			}
 		}
 
@@ -463,7 +456,7 @@ public class TorrentImportInfo
 				TimeFormatter.formatColon(seedingForSecs));
 		sb.append(NL);
 
-		if (fileLinks.size() > 0) {
+		if (fileLinks.size() > 0 && showFullDetails) {
 			sb.append(fileLinks.size()).append(" linked files").append(NL);
 			int numFakeRelinks = 0;
 			for (Integer index : fileLinks.keySet()) {

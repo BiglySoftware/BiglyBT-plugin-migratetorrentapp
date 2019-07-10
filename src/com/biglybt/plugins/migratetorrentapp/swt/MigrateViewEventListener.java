@@ -24,13 +24,16 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.biglybt.pif.ui.config.ParameterListener;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.ScrolledComposite;
+import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Label;
 
 import com.biglybt.core.internat.MessageText;
 import com.biglybt.core.util.FileUtil;
@@ -54,6 +57,7 @@ import com.biglybt.ui.swt.views.ConfigView;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.ui.config.Parameter;
+import com.biglybt.pif.ui.config.ParameterListener;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 
 import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
@@ -70,7 +74,7 @@ public class MigrateViewEventListener
 
 	private ConfigModel_uTorrent configModelInfo;
 
-	private Text resultTextArea;
+	private StyledText resultTextArea;
 
 	private ScrolledComposite sc;
 
@@ -232,7 +236,7 @@ public class MigrateViewEventListener
 			dialog.setFileName("uT_Migrate_Analysis.txt");
 			String name = dialog.open();
 			if (name != null) {
-				StringBuilder sb = buildAnalysisResults(importer, false);
+				StringBuilder sb = buildAnalysisResults(importer, false, false);
 				File file = new File(name);
 				FileUtil.writeStringAsFile(file, hidePrivate(sb.toString()));
 				UIFunctionsManager.getUIFunctions().showInExplorer(file);
@@ -245,8 +249,8 @@ public class MigrateViewEventListener
 				"migrateapp.checkbox.onlyWwarnings");
 		btnShowOnlyWarnings.addListener(SWT.Selection, event -> {
 			showOnlyWarningTorrents = btnShowOnlyWarnings.getSelection();
-			StringBuilder sb = buildAnalysisResults(importer,
-					showOnlyWarningTorrents);
+			StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents,
+					true);
 			resultTextArea.setText(sb.toString());
 			recalcScrolledComposite();
 		});
@@ -254,13 +258,27 @@ public class MigrateViewEventListener
 		gridData.horizontalSpan = 2;
 		btnShowOnlyWarnings.setLayoutData(gridData);
 
-		resultTextArea = new Text(cResultsArea,
-				SWT.BORDER | SWT.READ_ONLY | SWT.WRAP);
+		// Using StyledText instead of Text, because Text with focus messed up
+		// scrolling with mouse wheel.
+		resultTextArea = new StyledText(cResultsArea,
+				SWT.BORDER | SWT.READ_ONLY | SWT.WRAP | SWT.MULTI);
 		resultTextArea.setFont(
 				com.biglybt.plugins.migratetorrentapp.swt.FontUtils.getMonospaceFont(
 						resultTextArea.getDisplay(), 10));
 		gridData = new GridData(GridData.FILL_BOTH);
 		resultTextArea.setLayoutData(gridData);
+		resultTextArea.addListener(SWT.KeyDown, event -> {
+			int key = event.character;
+
+			if (key <= 26 && key > 0) {
+				key += 'a' - 1;
+			}
+
+			if (key == 'a' && event.stateMask == SWT.MOD1) {
+				event.doit = false;
+				resultTextArea.selectAll();
+			}
+		});
 
 		cResultsArea.layout(true);
 	}
@@ -293,7 +311,8 @@ public class MigrateViewEventListener
 	}
 
 	public void analysisComplete(Importer_uTorrent importer) {
-		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents);
+		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents,
+				true);
 		Utils.execSWTThread(() -> {
 			buildResultsArea(importer);
 			resultTextArea.setText(sb.toString());
@@ -308,7 +327,7 @@ public class MigrateViewEventListener
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
-			boolean onlyWarningTorrents) {
+			boolean onlyWarningTorrents, boolean autoTrim) {
 		StringBuilder sb = new StringBuilder();
 
 		if (!importer.canMigrate()) {
@@ -334,6 +353,18 @@ public class MigrateViewEventListener
 
 		String nl = NL + "│ ";
 		String s;
+
+
+		sb.append("┌─────────────────────────────────────────────────").append(nl);
+		s = importer.settingsImportInfo.toDebugString(
+				showOnlyWarningTorrents).replaceAll(NL, nl);
+		sb.append(s);
+
+		sb.append(NL);
+		sb.append("└──────────────────────────────────────────────────");
+		sb.append(NL).append(NL);
+
+
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		sb.append(importer.listTorrentsToImport.size()).append(
 				" torrents found in uT. Any torrents already in BiglyBT will be skipped.").append(
@@ -342,22 +373,18 @@ public class MigrateViewEventListener
 			if (onlyWarningTorrents && !importInfo.hasWarnings()) {
 				continue;
 			}
+
+			boolean showFullDetails = !autoTrim
+					|| sb.length() < Integer.MAX_VALUE / 2;
+
 			sb.append(NL);
 			sb.append("├─────────────────────────────────────────────────");
 			sb.append(nl).append(nl);
-			s = importInfo.toDebugString().replaceAll(NL, nl);
+			s = importInfo.toDebugString(showFullDetails).replaceAll(NL, nl);
 			sb.append(s);
 		}
 		sb.append(NL);
 		sb.append("└─────────────────────────────────────────────────");
-		sb.append(NL).append(NL);
-
-		sb.append("┌─────────────────────────────────────────────────").append(nl);
-		s = importer.settingsImportInfo.toDebugString().replaceAll(NL, nl);
-		sb.append(s);
-
-		sb.append(NL);
-		sb.append("└──────────────────────────────────────────────────");
 		sb.append(NL).append(NL);
 
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
