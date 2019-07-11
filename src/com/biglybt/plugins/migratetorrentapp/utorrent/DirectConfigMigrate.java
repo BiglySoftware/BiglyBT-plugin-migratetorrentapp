@@ -60,13 +60,16 @@ public class DirectConfigMigrate
 			if (showOnlyChanged && alreadyValue) {
 				return sb;
 			}
-			sb.append(alreadyValue ? "[Same] " : "[Change] ");
+			if (!showOnlyChanged) {
+				sb.append(alreadyValue ? "[Same]" : "[Change]");
+			}
 			if (utKey == null) {
-				sb.append("-> ").append(biglyKey).append("(").append(biglyValue).append(
-						")").append(NL);
+				sb.append(" -> ").append(biglyKey).append("(").append(
+						biglyValue).append(")").append(NL);
 			} else {
+				sb.append(utKey);
 				if (utValue != null && !utValue.equals(biglyValue)) {
-					sb.append(utKey).append("(");
+					sb.append(" (");
 					if (privateValues) {
 						sb.append(Utils.wrapString("" + utValue));
 					} else {
@@ -74,7 +77,7 @@ public class DirectConfigMigrate
 					}
 					sb.append(") ");
 				}
-				sb.append("-> ");
+				sb.append(" -> ");
 				sb.append(biglyKey);
 				sb.append("(");
 				if (privateValues) {
