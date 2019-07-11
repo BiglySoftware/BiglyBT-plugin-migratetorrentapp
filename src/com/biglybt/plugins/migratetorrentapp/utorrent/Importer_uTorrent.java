@@ -186,8 +186,7 @@ public class Importer_uTorrent
 
 		buildAdditionalDataDirs();
 
-
-			configModelInfo.analysisStatus("Analyzing uT Torrents");
+		configModelInfo.analysisStatus("Analyzing uT Torrents");
 
 		processResumeFile(configDir);
 
@@ -216,7 +215,6 @@ public class Importer_uTorrent
 		for (String dataDir : mapAdditionalDataDirs.keySet()) {
 			Boolean recursive = mapAdditionalDataDirs.get(dataDir);
 
-			configModelInfo.analysisStatus("Analyzing Scan Directory " + dataDir);
 			addDataDirFiles(new File(dataDir), recursive);
 		}
 	}
@@ -227,11 +225,17 @@ public class Importer_uTorrent
 		}
 		listAdditionalDataDirs.add(dir);
 		File[] files = dir.listFiles();
+		if (files == null) {
+			return;
+		}
+		configModelInfo.analysisStatus("Analyzing Scan Directory " + dir);
 		for (File file : files) {
 			if (file.isFile()) {
-				List<File> filesWithSize = mapFileSizeToScannedFile.putIfAbsent(file.length(), new ArrayList<>());
+				List<File> filesWithSize = mapFileSizeToScannedFile.computeIfAbsent(
+						file.length(), k -> new ArrayList<>());
 				filesWithSize.add(file);
-				List<File> filesWithName = mapFilenameToScannedFile.putIfAbsent(file.getName(), new ArrayList<>());
+				List<File> filesWithName = mapFilenameToScannedFile.computeIfAbsent(
+						file.getName(), k -> new ArrayList<>());
 				filesWithName.add(file);
 			} else if (recursive && file.isDirectory()) {
 				addDataDirFiles(file, true);
