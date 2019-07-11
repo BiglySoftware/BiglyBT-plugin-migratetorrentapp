@@ -279,14 +279,13 @@ public class MigrateViewEventListener
 				resultTextArea.selectAll();
 			}
 		});
-
-		cResultsArea.layout(true);
 	}
 
 	private void recalcScrolledComposite() {
 		int width = sc.getClientArea().width;
 		Point size = parent.computeSize(width, SWT.DEFAULT);
 		sc.setMinSize(size);
+		sc.layout(true, true);
 		goingToRecalcSC = false;
 	}
 
