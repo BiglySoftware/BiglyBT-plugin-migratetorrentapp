@@ -671,7 +671,12 @@ public class SettingsImportInfo
 						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath));
 			} else {
 				logWarnings.append("Invalid default save folder of ").append(
-						Utils.wrapString(origSavePath)).append(NL);
+						Utils.wrapString(savePath));
+				if (!savePath.equals(origSavePath)) {
+					logWarnings.append(" (Originally ").append(
+							Utils.wrapString(origSavePath)).append(")");
+				}
+				logWarnings.append(NL);
 			}
 		}
 
@@ -691,7 +696,12 @@ public class SettingsImportInfo
 					ConfigKeys.File.SCFG_COMPLETED_FILES_DIRECTORY, moveOnCompletePath);
 		} else if (moveOnComplete) {
 			logWarnings.append("Invalid move on complete folder of ").append(
-					Utils.wrapString(origMoveOnCompletePath)).append(NL);
+					Utils.wrapString(moveOnCompletePath));
+			if (!moveOnCompletePath.equals(origMoveOnCompletePath)) {
+				logWarnings.append(" (Originally ").append(
+						Utils.wrapString(origMoveOnCompletePath)).append(")");
+			}
+			logWarnings.append(NL);
 		}
 		if (moveOnComplete) {
 			boolean addLabel = getFlag(Directories.DIR_COMPLETED_ADD_LABEL, false);
@@ -730,7 +740,12 @@ public class SettingsImportInfo
 						saveTorrentFileDir));
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
-						Utils.wrapString(origSaveTorrentFileDir)).append(NL);
+						Utils.wrapString(saveTorrentFileDir));
+				if (!saveTorrentFileDir.equals(origSaveTorrentFileDir)) {
+					logWarnings.append(" (Originally ").append(
+							Utils.wrapString(origSaveTorrentFileDir)).append(")");
+				}
+				logWarnings.append(NL);
 			}
 		}
 
