@@ -694,7 +694,8 @@ public class TorrentImportInfo
 			mapDMStateAttr.put(DownloadManagerState.PARAM_MAX_PEERS, maxPeers);
 		}
 
-		dirSavePath = MapUtils.getMapString(map, ResumeConstants.PATH, "");
+		dirSavePath = MapUtils.getMapString(map, ResumeConstants.ROOTDIR,
+				MapUtils.getMapString(map, ResumeConstants.PATH, ""));
 		if (dirSavePath.length() > 0) {
 			dirSavePath = importer.replaceFolders(dirSavePath);
 		}

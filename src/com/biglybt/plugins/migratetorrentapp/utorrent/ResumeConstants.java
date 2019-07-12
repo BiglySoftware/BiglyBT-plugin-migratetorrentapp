@@ -357,10 +357,11 @@ public class ResumeConstants {
 	 */
 	public static final String PARENT_INFO = "parent_info";
 
-	/** byte[]<br>
+	/** String<br>
 	 * [GENERAL/TRANSFER TAB] Save As
 	 * <p/>
-	 * Path on the Local Machine where Incoming Files are saved (the Folder etc.)
+	 * For non-Simple Torrents: Path on the Local Machine where Incoming Files are saved (the Folder etc.)<br/>
+	 * For Simple Torrents: Full path to data file. {@link #ROOTDIR} will have path without filename.
 	 */
 	public static final String PATH = "path";
 
@@ -414,8 +415,8 @@ public class ResumeConstants {
 	 */
 	public static final String RELATIVE = "relative";
 
-	/** byte[]<br>
-	 *
+	/** String<br>
+	 * Present for Simple Torrents.  Path file will be saved to, excluding filename
 	 */
 	public static final String ROOTDIR = "rootdir";
 
