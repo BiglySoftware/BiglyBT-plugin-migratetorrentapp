@@ -1087,7 +1087,47 @@ public class TorrentImportInfo
 
 			if (fileSkipState != null && fileSkipState[i]) {
 				boolean needStartPart = fileStartsIntoPiecePos != 0;
+				if (needStartPart) {
+					// We don't really need start part if previous file(s) were skipped until previous piece #
+					int prevNonSkippedIndex = i - 1;
+					long prevRunningTorrentSize = fileStartsAtGlobalPos;
+					while (prevNonSkippedIndex > 0) {
+						if (fileSkipState[prevNonSkippedIndex]) {
+							prevRunningTorrentSize -= torrentFiles[prevNonSkippedIndex].getLength();
+							long prevStartsAtPieceNo = prevRunningTorrentSize / pieceLength;
+							if (prevStartsAtPieceNo < fileStartsAtPieceNo) {
+								// on new piece number, don't need end part
+								needStartPart = false;
+								break;
+							}
+						} else {
+							// still on same piece number, so we need start part
+							break;
+						}
+						prevNonSkippedIndex--;
+					}
+				}
 				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
+				if (needEndPart) {
+					// We don't really need end part if next file(s) are skipped until next piece
+					int nextNonSkippedIndex = i + 1;
+					long nextRunningTorrentSize = runningTorrentSize;
+					while (nextNonSkippedIndex < fileSkipState.length) {
+						if (fileSkipState[nextNonSkippedIndex]) {
+							nextRunningTorrentSize += torrentFiles[nextNonSkippedIndex].getLength();
+							long nextStartsAtPieceNo = nextRunningTorrentSize / pieceLength;
+							if (nextStartsAtPieceNo > fileEndsAtPieceNo) {
+								// on new piece number, don't need end part
+								needEndPart = false;
+								break;
+							}
+						} else {
+							// still on same piece number, so we need end part
+							break;
+						}
+						nextNonSkippedIndex++;
+					}
+				}
 				if (needStartPart || needEndPart) {
 					if (partFile == null) {
 						partFile = PartFile.getFromSaveLocation(torrent, new File(dirSavePath));
