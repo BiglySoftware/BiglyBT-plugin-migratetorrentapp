@@ -88,7 +88,7 @@ public class PartFile
 
 	private int numParts;
 
-	private Map<Integer, Integer> mapPartIndexToHeaderIndex;
+	private Map<Integer, Integer> mapHeaderIndexToPartIndex;
 
 	private Map<Integer, PartInfo> mapParts;
 
@@ -119,20 +119,24 @@ public class PartFile
 		}
 	}
 
-	public PartFile(TOTorrent torrent) {
-		this(torrent, new File(
-				"~uTorrentPartFile_" + Long.toHexString(torrent.getSize()) + ".dat"));
+	public static PartFile getFromSaveLocation(TOTorrent torrent, File saveLocation) {
+		File file = new File(saveLocation,
+				"~uTorrentPartFile_" + Long.toHexString(torrent.getSize()) + ".dat");
+		if (file.exists()) {
+			return new PartFile(torrent, file);
+		}
+		return null;
 	}
 
 	public boolean hasPartFile() {
-		return mapPartIndexToHeaderIndex != null;
+		return mapHeaderIndexToPartIndex != null;
 	}
 
 	public PartFile(TOTorrent torrent, File partsFile) {
 		this.torrent = torrent;
 		this.partsFile = partsFile;
 		try {
-			Pattern pat = Pattern.compile("_([A-Z0-9]+)\\.");
+			Pattern pat = Pattern.compile("_([A-Z0-9]+)\\.", Pattern.CASE_INSENSITIVE);
 			Matcher matcher = pat.matcher(partsFile.getName());
 			if (!matcher.find()) {
 				return;
@@ -143,7 +147,8 @@ public class PartFile
 
 			FileInputStream is = new FileInputStream(partsFile);
 
-			mapPartIndexToHeaderIndex = new HashMap<>();
+			Map<Integer, Integer> mapPartIndexToHeaderIndex = new HashMap<>();
+			mapHeaderIndexToPartIndex = new HashMap<>();
 
 			byte[] partInfoBytes = new byte[numParts * 4];
 			is.read(partInfoBytes);
@@ -151,7 +156,12 @@ public class PartFile
 			ByteBuffer bb = ByteBuffer.wrap(partInfoBytes);
 			bb.order(ByteOrder.LITTLE_ENDIAN);
 			for (int i = 0; i < numParts; i++) {
-				mapPartIndexToHeaderIndex.put(bb.getInt(), i);
+				int partIndex = bb.getInt();
+				if (partIndex == 0) {
+					continue;
+				}
+				mapPartIndexToHeaderIndex.put(partIndex, i);
+				mapHeaderIndexToPartIndex.put(i, partIndex);
 			}
 
 			partInfoBytes = null;
@@ -222,7 +232,7 @@ public class PartFile
 
 		sb.append("# 64k parts: " + numParts).append(Utils.NL);
 
-		sb.append(mapPartIndexToHeaderIndex).append(Utils.NL);
+		sb.append(mapHeaderIndexToPartIndex).append(Utils.NL);
 
 		sb.append("# 64k Parts Read: " + mapParts.size()).append(Utils.NL);
 		sb.append("last 64k Part Size: " + lastPartSize).append(Utils.NL);
@@ -239,7 +249,11 @@ public class PartFile
 
 	public boolean hasByteRange(long globalStartPos, long len) {
 		int headerIndexNoStart = (int) (globalStartPos / SIZE_64_K);
-		PartInfo partInfo = mapParts.get(headerIndexNoStart);
+		Integer partIndex = mapHeaderIndexToPartIndex.get(headerIndexNoStart);
+		if (partIndex == null) {
+			return false;
+		}
+		PartInfo partInfo = mapParts.get(partIndex);
 		if (partInfo == null) {
 			return false;
 		}
@@ -249,8 +263,12 @@ public class PartFile
 		}
 		int headerIndexNoEnd = (int) ((globalStartPos + len - 1) / SIZE_64_K);
 		if (headerIndexNoStart != headerIndexNoEnd) {
-			partInfo = mapParts.get(headerIndexNoEnd);
-			if (partInfo == null || globalStartPos + len > partInfo.startPos + len) {
+			partIndex = mapHeaderIndexToPartIndex.get(headerIndexNoEnd);
+			if (partIndex == null) {
+				return false;
+			}
+			partInfo = mapParts.get(partIndex);
+			if (partInfo == null || globalStartPos + len > partInfo.startPos + partInfo.len) {
 				return false;
 			}
 		}

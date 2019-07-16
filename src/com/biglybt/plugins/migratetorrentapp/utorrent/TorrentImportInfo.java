@@ -909,8 +909,15 @@ public class TorrentImportInfo
 				continue;
 			}
 
-			newPath = importer.replaceFolders(newPath);
 			int fileIndex = ((Number) o0).intValue();
+
+			if (torrentFiles != null && newPath.equals(torrentFiles[fileIndex].getRelativePath())) {
+				// This happens on Simple Torrents. uT will set a link which is the same as relative path
+				// BiglyBT doesn't need to create a link for these
+				continue;
+			}
+
+			newPath = importer.replaceFolders(newPath);
 
 			File file = findFile(newPath, dirSavePath,
 					torrentFiles == null ? -1 : torrentFiles[fileIndex].getLength());
@@ -979,6 +986,7 @@ public class TorrentImportInfo
 					% DiskManager.BLOCK_SIZE;
 			long fileStartBlockBytes = Math.min(fileLength,
 					DiskManager.BLOCK_SIZE - fileStartsIntoBlockPos);
+			long fileStartsAtGlobalBlockNo = runningTorrentSize / DiskManager.BLOCK_SIZE;
 
 			runningTorrentSize += fileLength;
 			long fileEndsAtGlobalPos = runningTorrentSize - 1;
@@ -995,6 +1003,9 @@ public class TorrentImportInfo
 			long fileEndsAtBlockNo = fileEndsIntoPiecePos / DiskManager.BLOCK_SIZE;
 			long fileEndsIntoBlockPos = fileEndsIntoPiecePos % DiskManager.BLOCK_SIZE;
 			long fileEndBlockBytes = Math.min(fileLength, fileEndsIntoBlockPos + 1);
+			long fileEndsAtGlobalBlockNo = fileEndsAtGlobalPos / DiskManager.BLOCK_SIZE;
+
+			//System.out.println(i + ": " + fileSkipState[i] + ": " + torrentFiles[i].getRelativePath() + ": " + fileStartsAtPiece + " to " + fileEndsAtPiece + "; " + (fileStartPieceBytes) + "/" + (fileEndPieceBytes) + "; " + fileStartsAtGlobalBlockNo + "/" + fileEndsAtGlobalBlockNo);
 
 			// uT doesn't create the file until a byte in the piece is downloaded
 			boolean needFile = false;
@@ -1079,9 +1090,9 @@ public class TorrentImportInfo
 				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
 				if (needStartPart || needEndPart) {
 					if (partFile == null) {
-						partFile = new PartFile(torrent);
+						partFile = PartFile.getFromSaveLocation(torrent, new File(dirSavePath));
 					}
-					if (partFile.hasPartFile()) {
+					if (partFile != null && partFile.hasPartFile()) {
 
 						boolean hasBytes = true;
 						if (needStartPart) {
@@ -1091,7 +1102,7 @@ public class TorrentImportInfo
 
 						if (needEndPart) {
 							hasBytes &= partFile.hasByteRange(
-									fileEndsAtGlobalPos - fileEndPieceBytes, fileEndPieceBytes);
+									fileEndsAtGlobalPos - fileEndPieceBytes + 1, fileEndPieceBytes);
 						}
 
 						if (hasBytes) {
@@ -1121,7 +1132,7 @@ public class TorrentImportInfo
 							}
 							if (needEndPart) {
 								logWarnings.append(", global end location ").append(
-										fileEndsAtGlobalPos - fileEndPieceBytes).append(
+										fileEndsAtGlobalPos - fileEndPieceBytes + 1).append(
 												", length ").append(fileEndPieceBytes);
 							}
 							logWarnings.append(NL);
