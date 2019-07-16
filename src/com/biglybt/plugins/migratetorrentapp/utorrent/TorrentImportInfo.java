@@ -249,7 +249,7 @@ public class TorrentImportInfo
 
 		String relativeFilename = file.getName();
 		boolean differs = !relativeFilename.equals(relativeOrAbsoluteFile);
-		
+
 		if (differs) {
 			// because relativeFilename might be "foo.wmv", but
 			// relativeOrAbsoluteFile might be "bar/foo.wmv"
@@ -260,7 +260,7 @@ public class TorrentImportInfo
 				}
 			}
 		}
-		
+
 		if (requiredSize > 0) {
 			List<File> files = importer.mapFileSizeToScannedFile.get(requiredSize);
 			if (files != null) {
@@ -419,7 +419,8 @@ public class TorrentImportInfo
 			}
 			if (upSpeed > 0) {
 				sb.append("Limit upload speed to ").append(
-						DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(NL);
+						DisplayFormatters.formatByteCountToKiBEtcPerSec(upSpeed)).append(
+								NL);
 			}
 
 			if (mapDMStateParam.size() > 0) {
@@ -734,7 +735,7 @@ public class TorrentImportInfo
 			if (filePriority == 0x08) {
 				continue;
 			}
-			if (filePriority == (byte) 0x80) { //skip
+			if (filePriority == (byte) 0x80 || filePriority == 0x00) { //skip
 				if (fileSkipState == null) {
 					fileSkipState = new boolean[filePrioritiesLength];
 				}
@@ -952,6 +953,7 @@ public class TorrentImportInfo
 		long runningTorrentSize = 0;
 
 		haveBlockBytes = 0;
+		PartFile partFile = null;
 		for (int i = 0, filesLength = torrentFiles.length; i < filesLength; i++) {
 			TOTorrentFile file = torrentFiles[i];
 
@@ -959,38 +961,40 @@ public class TorrentImportInfo
 			int start = file.getFirstPieceNumber();
 			int end = file.getLastPieceNumber();
 
-			long fileStartsAtPos = runningTorrentSize;
-			long fileStartsAtPiece = fileStartsAtPos / pieceLength;
-			if (fileStartsAtPiece != start) {
+			long fileStartsAtGlobalPos = runningTorrentSize;
+			long fileStartsAtPieceNo = fileStartsAtGlobalPos / pieceLength;
+			if (fileStartsAtPieceNo != start) {
 				logWarnings.append("File #").append(i).append(
 						" inconsistent piece start ").append(" (rs=").append(
 								runningTorrentSize).append(";pl=").append(pieceLength).append(
 										")").append(NL);
 			}
-			long fileStartsAtPiecePos = fileStartsAtPos % pieceLength;
+			long fileStartsIntoPiecePos = fileStartsAtGlobalPos % pieceLength;
 			long fileStartPieceBytes = Math.min(fileLength,
-					pieceLength - fileStartsAtPiecePos);
+					pieceLength - fileStartsIntoPiecePos);
 
-			long fileStartsAtBlockNo = fileStartsAtPiecePos / DiskManager.BLOCK_SIZE;
-			long fileStartsAtBlockPos = fileStartsAtPiecePos % DiskManager.BLOCK_SIZE;
+			long fileStartsAtBlockNo = fileStartsIntoPiecePos
+					/ DiskManager.BLOCK_SIZE;
+			long fileStartsIntoBlockPos = fileStartsIntoPiecePos
+					% DiskManager.BLOCK_SIZE;
 			long fileStartBlockBytes = Math.min(fileLength,
-					DiskManager.BLOCK_SIZE - fileStartsAtBlockPos);
+					DiskManager.BLOCK_SIZE - fileStartsIntoBlockPos);
 
 			runningTorrentSize += fileLength;
-			long fileEndsAtPos = runningTorrentSize - 1;
-			long fileEndsAtPiece = fileEndsAtPos / pieceLength;
-			if (fileEndsAtPiece != end) {
+			long fileEndsAtGlobalPos = runningTorrentSize - 1;
+			long fileEndsAtPieceNo = fileEndsAtGlobalPos / pieceLength;
+			if (fileEndsAtPieceNo != end) {
 				logWarnings.append("File #").append(i).append(
 						" inconsistent piece end ").append(end).append(" vs ").append(
-								fileEndsAtPiece).append(" (rs=").append(
+								fileEndsAtPieceNo).append(" (rs=").append(
 										runningTorrentSize).append(";pl=").append(
 												pieceLength).append(")").append(NL);
 			}
-			long fileEndsAtPiecePos = fileEndsAtPos % pieceLength;
-			long fileEndPieceBytes = Math.min(fileLength, fileEndsAtPiecePos + 1);
-			long fileEndsAtBlockNo = fileEndsAtPiecePos / DiskManager.BLOCK_SIZE;
-			long fileEndsAtBlockPos = fileEndsAtPiecePos % DiskManager.BLOCK_SIZE;
-			long fileEndBlockBytes = Math.min(fileLength, fileEndsAtBlockPos + 1);
+			long fileEndsIntoPiecePos = fileEndsAtGlobalPos % pieceLength;
+			long fileEndPieceBytes = Math.min(fileLength, fileEndsIntoPiecePos + 1);
+			long fileEndsAtBlockNo = fileEndsIntoPiecePos / DiskManager.BLOCK_SIZE;
+			long fileEndsIntoBlockPos = fileEndsIntoPiecePos % DiskManager.BLOCK_SIZE;
+			long fileEndBlockBytes = Math.min(fileLength, fileEndsIntoBlockPos + 1);
 
 			// uT doesn't create the file until a byte in the piece is downloaded
 			boolean needFile = false;
@@ -1005,7 +1009,7 @@ public class TorrentImportInfo
 									if (j == start) {
 										for (Long haveBlockNo : listHaveBlocks) {
 											if (haveBlockNo >= fileStartsAtBlockNo
-													&& (fileEndsAtPiece > start
+													&& (fileEndsAtPieceNo > start
 															|| haveBlockNo <= fileEndsAtBlockNo)) {
 												//System.out.println(i + ", start piece " + j + ", block " + haveBlockNo + "; fileStartsAtBlockNo=" + fileStartsAtBlockNo + ";" + ((haveBlockNo == fileStartsAtBlockNo) ? fileStartBlockBytes : DiskManager.BLOCK_SIZE));
 												haveBlockBytes += (haveBlockNo == fileStartsAtBlockNo)
@@ -1016,7 +1020,7 @@ public class TorrentImportInfo
 									} else if (j == end) {
 										for (Long haveBlockNo : listHaveBlocks) {
 											if (haveBlockNo <= fileEndsAtBlockNo
-													&& (fileStartsAtPiece < end
+													&& (fileStartsAtPieceNo < end
 															|| haveBlockNo >= fileStartsAtBlockNo)) {
 												//System.out.println(i + ", end piece " + j + ", block " + haveBlockNo + "; fileEndsAtBlockNo=" + fileEndsAtBlockNo + ";" + ((haveBlockNo == fileEndsAtBlockNo) ? fileEndBlockBytes : DiskManager.BLOCK_SIZE));
 												haveBlockBytes += (haveBlockNo == fileEndsAtBlockNo)
@@ -1067,9 +1071,66 @@ public class TorrentImportInfo
 				String existingFileLink = fileLinks.put(i, foundFile.getAbsolutePath());
 				mapRelinked.put(i + (existingFileLink == null ? "" : "*"),
 						relativePath);
-			} else {
-				mapNotFound.put(i, fileLink == null ? relativePath : fileLink);
+				continue;
 			}
+
+			if (fileSkipState != null && fileSkipState[i]) {
+				boolean needStartPart = fileStartsIntoPiecePos != 0;
+				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
+				if (needStartPart || needEndPart) {
+					if (partFile == null) {
+						partFile = new PartFile(torrent);
+					}
+					if (partFile.hasPartFile()) {
+
+						boolean hasBytes = true;
+						if (needStartPart) {
+							hasBytes &= partFile.hasByteRange(fileStartsAtGlobalPos,
+									fileStartPieceBytes);
+						}
+
+						if (needEndPart) {
+							hasBytes &= partFile.hasByteRange(
+									fileEndsAtGlobalPos - fileEndPieceBytes, fileEndPieceBytes);
+						}
+
+						if (hasBytes) {
+							logInfo.append("Found ");
+							logInfo.append("#");
+							logInfo.append(i);
+							logInfo.append(":");
+							logInfo.append(Utils.wrapString(relativePath));
+							logInfo.append(" in ~uTorrentPartFile");
+							logInfo.append(NL);
+							
+							// TODO: Store that we need to pull the part file data into
+							//       a format BiglyBT can use.
+							
+							continue;
+						} else {
+							logWarnings.append(
+									"Torrent has ~uTorrentPartFile, but no entry for ");
+							logWarnings.append("#");
+							logWarnings.append(i);
+							logWarnings.append(":");
+							logWarnings.append(Utils.wrapString(relativePath));
+							if (needStartPart) {
+								logWarnings.append(", global start location ").append(
+										fileStartsAtGlobalPos).append(", length ").append(
+												fileStartPieceBytes);
+							}
+							if (needEndPart) {
+								logWarnings.append(", global end location ").append(
+										fileEndsAtGlobalPos - fileEndPieceBytes).append(
+												", length ").append(fileEndPieceBytes);
+							}
+							logWarnings.append(NL);
+						}
+					}
+				}
+			}
+
+			mapNotFound.put(i, fileLink == null ? relativePath : fileLink);
 		}
 
 		if (mapNotFound.size() > 0) {
@@ -1519,5 +1580,4 @@ public class TorrentImportInfo
 			dm.setForceStart(true);
 		}
 	}
-
 }

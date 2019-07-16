@@ -377,6 +377,7 @@ public class ResumeConstants {
 	 * priority, each byte representing one file. The order of the bytes is the
 	 * same as the order found in the .torrent file
 	 * <p/>
+	 * 0x00: Skip (but file exists?) TODO: Handle this
 	 * 0x04: Low<br>
 	 * 0x08: Normal<br>
 	 * 0x0C: High<br>
