@@ -22,6 +22,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -106,9 +107,8 @@ public class PartFile
 		}
 
 		public String toDebugString() {
-			return "Data for torrent range " + torrentDataStartPos + " to "
-					+ (torrentDataStartPos + len) + " (" + len + " bytes), stored at "
-					+ partFileStartPos + Utils.NL;
+			return "torrentDataStartPos=" + torrentDataStartPos + "; partLen=" + len
+					+ "@" + partFileStartPos;
 		}
 	}
 
@@ -234,7 +234,7 @@ public class PartFile
 		sb.append("Last 64k part Size: ").append(lastPartSize).append(Utils.NL);
 
 		for (PartInfo partInfo : map64kPositionToPart.values()) {
-			sb.append(partInfo.toDebugString());
+			sb.append(partInfo.toDebugString()).append(Utils.NL);
 		}
 
 		return sb.toString();
@@ -287,22 +287,39 @@ public class PartFile
 
 		FileInputStream is = new FileInputStream(partsFile);
 		try {
+			long curFilePos = 0;
 			while (len > 0) {
 				int partIndex = (int) (torrentDataStartPos / SIZE_64_K);
 				PartInfo partInfo = map64kPositionToPart.get(partIndex);
 				int partStartPos = (int) (torrentDataStartPos % SIZE_64_K);
 				int partRemaining = SIZE_64_K - partStartPos;
+				int numBytesToRead = (int) Math.min(partRemaining, len);
+				
+				if (partInfo == null) {
+					// write 0s if torrent data is not in partfile
+					Arrays.fill(data, 0, numBytesToRead, (byte) 0);
+					os.write(data, 0, numBytesToRead);
+
+					torrentDataStartPos += numBytesToRead;
+					len -= numBytesToRead;
+					continue;
+				}
+				
 				long partfileStartPos = partInfo.partFileStartPos + partStartPos;
 
-				long skip = is.skip(partfileStartPos);
-				if (skip != partfileStartPos) {
+				long numToSkip = partfileStartPos - curFilePos;
+				long skip = is.skip(numToSkip);
+				curFilePos += skip;
+				if (skip != numToSkip) {
 					throw new EOFException(
 							"Skip " + partfileStartPos + " skipped " + skip);
 				}
-				int bytesRead = is.read(data, 0, (int) Math.min(partRemaining, len));
+				int bytesRead = is.read(data, 0, numBytesToRead);
+				curFilePos += bytesRead;
 
 				if (bytesRead == -1) {
-					throw new EOFException();
+					throw new EOFException(
+							"Wanted " + numBytesToRead + " at " + partfileStartPos);
 				}
 
 				os.write(data, 0, bytesRead);
@@ -314,5 +331,11 @@ public class PartFile
 		} finally {
 			is.close();
 		}
+	}
+
+	public PartInfo getPartInfoByTorrentDataPos(long torrentDataStartPos) {
+		int partIndex = (int) (torrentDataStartPos / SIZE_64_K);
+
+		return map64kPositionToPart.get(partIndex);
 	}
 }

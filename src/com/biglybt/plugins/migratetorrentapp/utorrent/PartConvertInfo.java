@@ -40,15 +40,55 @@ public class PartConvertInfo
 
 	public final File destFile;
 
-	public final List<PartConvertRange> ranges = new ArrayList<>();
+	public final int fileIndex;
 
-	public PartConvertInfo(PartFile partFile, File destFile) {
+	public PartConvertRange startRange;
+
+	public PartConvertRange endRange;
+
+	public PartConvertInfo(PartFile partFile, File destFile, int fileIndex) {
 		this.partFile = partFile;
 		this.destFile = destFile;
+		this.fileIndex = fileIndex;
 	}
 
-	public PartConvertInfo add(long torrentDataStartPos, long len) {
-		ranges.add(new PartConvertRange(torrentDataStartPos, len));
+	public PartConvertInfo setStartRange(long torrentDataStartPos, long len) {
+		startRange = new PartConvertRange(torrentDataStartPos, len);
 		return this;
+	}
+
+	public PartConvertInfo setEndRange(long torrentDataStartPos, long len) {
+		endRange = new PartConvertRange(torrentDataStartPos, len);
+		return this;
+	}
+
+	public String toDebugString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("[ ");
+		if (startRange != null) {
+			sb.append("start: ");
+			sb.append(startRange.len).append(" bytes @ ").append(
+					startRange.torrentDataStartPos);
+			PartFile.PartInfo partInfo = partFile.getPartInfoByTorrentDataPos(
+					startRange.torrentDataStartPos);
+			if (partInfo != null) {
+				sb.append(" with start part ").append(partInfo.toDebugString());
+			}
+		}
+		if (endRange != null) {
+			if (startRange != null) {
+				sb.append(", ");
+			}
+			sb.append("end: ");
+			sb.append(endRange.len).append(" bytes @ ").append(
+					endRange.torrentDataStartPos);
+			PartFile.PartInfo partInfo = partFile.getPartInfoByTorrentDataPos(
+					endRange.torrentDataStartPos);
+			if (partInfo != null) {
+				sb.append(" with start part ").append(partInfo.toDebugString());
+			}
+		}
+		sb.append(" ]");
+		return sb.toString();
 	}
 }

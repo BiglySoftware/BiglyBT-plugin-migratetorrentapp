@@ -258,6 +258,7 @@ public class ConfigModel_uTorrent
 	}
 
 	File getDefaultConfigDir() {
+		// TODO: More checks. ie. bittorrent vs utorrent
 		File dir = null;
 		if (pi.getUtilities().isWindows()) {
 			dir = getConfigDir_Windows();

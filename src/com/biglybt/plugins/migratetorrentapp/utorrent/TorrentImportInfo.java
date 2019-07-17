@@ -1129,7 +1129,7 @@ public class TorrentImportInfo
 						needStartPart = false;
 					}
 				}
-				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
+				boolean needEndPart = fileStartsAtPieceNo != fileEndsAtPieceNo && fileEndsIntoPiecePos != pieceLength - 1;
 				if (needEndPart) {
 					// We don't really need end part if next file(s) are skipped until next piece
 					int nextNonSkippedIndex = i + 1;
@@ -1174,25 +1174,27 @@ public class TorrentImportInfo
 						}
 
 						if (hasBytes) {
+							File destFile = new File(dirSavePath, relativePath);
+							PartConvertInfo partConvertInfo = new PartConvertInfo(partFile,
+									destFile, i);
+							// Always have start range. BiglyBT partial files always have start range, even if they are all 0s and unused
+							partConvertInfo.setStartRange(fileStartsAtGlobalPos,
+									fileStartPieceBytes);
+							if (needEndPart) {
+								partConvertInfo.setEndRange(
+										fileEndsAtGlobalPos - fileEndPieceBytes + 1,
+										fileEndPieceBytes);
+							}
+							partConversions.add(partConvertInfo);
+
 							logInfo.append("Found ");
 							logInfo.append("#");
 							logInfo.append(i);
 							logInfo.append(":");
 							logInfo.append(Utils.wrapString(relativePath));
-							logInfo.append(" in ~uTorrentPartFile");
+							logInfo.append(" in ~uTorrentPartFile. ");
+							logInfo.append(partConvertInfo.toDebugString());
 							logInfo.append(NL);
-
-							File destFile = new File(dirSavePath, relativePath);
-							PartConvertInfo partConvertInfo = new PartConvertInfo(partFile,
-									destFile);
-							if (needStartPart) {
-								partConvertInfo.add(fileStartsAtGlobalPos, fileStartPieceBytes);
-							}
-							if (needEndPart) {
-								partConvertInfo.add(fileEndsAtGlobalPos - fileEndPieceBytes + 1,
-										fileEndPieceBytes);
-							}
-							partConversions.add(partConvertInfo);
 
 							continue;
 						} else {
@@ -1401,6 +1403,12 @@ public class TorrentImportInfo
 		}
 
 		if (partConversions.size() > 0) {
+			/* Don't need to write active file
+			String activeDirName = ByteFormatter.encodeString(infoHash);
+			File activeDir = new File(
+					new File(importer.pi.getUtilities().getUserDir(), "active"),
+					activeDirName);
+			 */
 			for (PartConvertInfo partConversion : partConversions) {
 				if (partConversion.destFile.exists()) {
 					sbMigrateLog.append("Skipping migration of uTorrentPartFile to ");
@@ -1412,10 +1420,29 @@ public class TorrentImportInfo
 				FileOutputStream os = null;
 				try {
 					os = new FileOutputStream(partConversion.destFile);
-					for (PartConvertRange range : partConversion.ranges) {
+					long size = 0;
+
+					if (partConversion.startRange != null) {
+						size += partConversion.startRange.len;
 						partConversion.partFile.writeTorrentData(os,
-								range.torrentDataStartPos, range.len);
+								partConversion.startRange.torrentDataStartPos,
+								partConversion.startRange.len);
 					}
+					if (partConversion.endRange != null) {
+						size += partConversion.endRange.len;
+						partConversion.partFile.writeTorrentData(os,
+								partConversion.endRange.torrentDataStartPos,
+								partConversion.endRange.len);
+					}
+
+					/* Don't need to write active file
+					File activeFile = new File(activeDir,
+							"fmfile" + partConversion.fileIndex + ".dat");
+					Map map = new HashMap();
+					map.put("length", size);
+					map.put("version", 0);
+					FileUtil.writeBytesAsFile(activeFile.getAbsolutePath(), BEncoder.encode(map));
+					*/
 				} catch (IOException e) {
 					String err = Utils.getErrorAndHideStuff(e);
 					sbMigrateLog.append("Error writing uTorrentPartFile to ");
@@ -1707,8 +1734,8 @@ public class TorrentImportInfo
 		dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
 				hashFails, downloadingForSecs, seedingForSecs);
 
-		if (forceStart) {
-			dm.setForceStart(true);
-		}
+		//if (forceStart) {
+		//	dm.setForceStart(true);
+		//}
 	}
 }
