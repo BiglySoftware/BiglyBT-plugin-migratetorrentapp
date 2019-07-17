@@ -1092,12 +1092,18 @@ public class TorrentImportInfo
 			}
 
 			String fileLink = fileLinks.get(i);
-			if (fileLink != null && new File(fileLink).isFile()) {
-				continue;
+			if (fileLink != null) {
+				File fileLinkFile = new File(fileLink);
+				if (fileLinkFile.isFile()
+						&& (fileLinkFile.length() > 0 || fileLength == 0)) {
+					continue;
+				}
 			}
 			// no link or link not a file, try relative path in default save path for torrent
 			String relativePath = file.getRelativePath();
-			if (new File(dirSavePath, relativePath).isFile()) {
+			File probablePath = new File(dirSavePath, relativePath);
+			if (probablePath.isFile()
+					&& (probablePath.length() > 0 || fileLength == 0)) {
 				continue;
 			}
 
@@ -1129,7 +1135,8 @@ public class TorrentImportInfo
 						needStartPart = false;
 					}
 				}
-				boolean needEndPart = fileStartsAtPieceNo != fileEndsAtPieceNo && fileEndsIntoPiecePos != pieceLength - 1;
+				boolean needEndPart = fileStartsAtPieceNo != fileEndsAtPieceNo
+						&& fileEndsIntoPiecePos != pieceLength - 1;
 				if (needEndPart) {
 					// We don't really need end part if next file(s) are skipped until next piece
 					int nextNonSkippedIndex = i + 1;
@@ -1410,7 +1417,8 @@ public class TorrentImportInfo
 					activeDirName);
 			 */
 			for (PartConvertInfo partConversion : partConversions) {
-				if (partConversion.destFile.exists()) {
+				if (partConversion.destFile.exists()
+						&& partConversion.destFile.length() != 0) {
 					sbMigrateLog.append("Skipping migration of uTorrentPartFile to ");
 					sbMigrateLog.append(
 							Utils.wrapString(partConversion.destFile.getAbsolutePath()));
@@ -1488,35 +1496,7 @@ public class TorrentImportInfo
 		TOTorrent torrent = dm.getTorrent();
 		TorrentUtils.setObtainedFrom(torrent, obtainedFrom);
 
-		// State Settings
 		DownloadManagerState downloadState = dm.getDownloadState();
-		try {
-			downloadState.suppressStateSave(true);
-			for (String stateKey : mapDMStateParam.keySet()) {
-				Object val = mapDMStateParam.get(stateKey);
-				if (val instanceof Number) {
-					downloadState.setLongParameter(stateKey, ((Number) val).longValue());
-				} else if (val instanceof Boolean) {
-					downloadState.setBooleanParameter(stateKey, (Boolean) val);
-				} else {
-					System.err.println("Bad state param key: " + stateKey);
-				}
-			}
-			for (String attrKey : mapDMStateAttr.keySet()) {
-				Object val = mapDMStateAttr.get(attrKey);
-				if (val instanceof Number) {
-					downloadState.setLongAttribute(attrKey, ((Number) val).longValue());
-				} else if (val instanceof Boolean) {
-					downloadState.setBooleanAttribute(attrKey, (Boolean) val);
-				} else if (val instanceof String) {
-					downloadState.setAttribute(attrKey, (String) val);
-				} else {
-					System.err.println("Bad state attr key: " + attrKey);
-				}
-			}
-		} finally {
-			downloadState.suppressStateSave(false);
-		}
 
 		// Stat Settings
 		DownloadManagerStats dmStats = dm.getStats();
@@ -1689,6 +1669,36 @@ public class TorrentImportInfo
 			}
 		}
 		dm.setDataAlreadyAllocated(dataAlreadyAllocated);
+
+		// State Settings
+		// Must be done after file manipulation, otherwise states like completion time will be overwritten
+		try {
+			downloadState.suppressStateSave(true);
+			for (String stateKey : mapDMStateParam.keySet()) {
+				Object val = mapDMStateParam.get(stateKey);
+				if (val instanceof Number) {
+					downloadState.setLongParameter(stateKey, ((Number) val).longValue());
+				} else if (val instanceof Boolean) {
+					downloadState.setBooleanParameter(stateKey, (Boolean) val);
+				} else {
+					System.err.println("Bad state param key: " + stateKey);
+				}
+			}
+			for (String attrKey : mapDMStateAttr.keySet()) {
+				Object val = mapDMStateAttr.get(attrKey);
+				if (val instanceof Number) {
+					downloadState.setLongAttribute(attrKey, ((Number) val).longValue());
+				} else if (val instanceof Boolean) {
+					downloadState.setBooleanAttribute(attrKey, (Boolean) val);
+				} else if (val instanceof String) {
+					downloadState.setAttribute(attrKey, (String) val);
+				} else {
+					System.err.println("Bad state attr key: " + attrKey);
+				}
+			}
+		} finally {
+			downloadState.suppressStateSave(false);
+		}
 
 		// Can't set these until after DM is added to GM
 		//dmStats.restoreSessionTotals(downloadedBytes, uploadedBytes, wasteBytes,
