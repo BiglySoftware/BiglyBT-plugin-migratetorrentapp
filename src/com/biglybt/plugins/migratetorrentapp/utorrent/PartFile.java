@@ -93,18 +93,22 @@ public class PartFile
 
 	public static class PartInfo
 	{
-		final long startPos;
+		final long partFileStartPos;
+
+		final long torrentDataStartPos;
 
 		final int len;
 
-		public PartInfo(long startPos, int len) {
-			this.startPos = startPos;
+		public PartInfo(long partFileStartPos, long torrentDataStartPos, int len) {
+			this.partFileStartPos = partFileStartPos;
+			this.torrentDataStartPos = torrentDataStartPos;
 			this.len = len;
 		}
 
 		public String toDebugString() {
-			return "Data for range " + startPos + " to " + (startPos + len) + " ("
-					+ len + " bytes)" + Utils.NL;
+			return "Data for torrent range " + torrentDataStartPos + " to "
+					+ (torrentDataStartPos + len) + " (" + len + " bytes), stored at "
+					+ partFileStartPos + Utils.NL;
 		}
 	}
 
@@ -158,7 +162,8 @@ public class PartFile
 				mapPartIndexToHeaderIndex.put(partIndex, i);
 			}
 
-			long dataLen = partsFile.length() - (numPartsInTorrent * 4);
+			long headerLength = numPartsInTorrent * 4;
+			long dataLen = partsFile.length() - headerLength;
 			lastPartSize = (int) (dataLen % SIZE_64_K);
 			if (lastPartSize == 0) {
 				lastPartSize = SIZE_64_K;
@@ -172,9 +177,11 @@ public class PartFile
 							"Part " + partIndex + " doesn't have a header entry");
 					continue;
 				}
-				long startPos = headerIndex * SIZE_64_K;
+				long torrentDataStartPos = headerIndex * SIZE_64_K;
+				long partFileStartPos = headerLength + (partIndex - 1) * SIZE_64_K;
 				int len = partIndex == numParts ? lastPartSize : SIZE_64_K;
-				PartInfo partInfo = new PartInfo(startPos, len);
+				PartInfo partInfo = new PartInfo(partFileStartPos, torrentDataStartPos,
+						len);
 				map64kPositionToPart.put(headerIndex, partInfo);
 			}
 
@@ -240,14 +247,14 @@ public class PartFile
 			return false;
 		}
 		if (len < SIZE_64_K
-				&& partInfo.startPos + partInfo.len < globalStartPos + len) {
+				&& partInfo.torrentDataStartPos + partInfo.len < globalStartPos + len) {
 			return false;
 		}
 		int headerIndexNoEnd = (int) ((globalStartPos + len - 1) / SIZE_64_K);
 		if (headerIndexNoStart != headerIndexNoEnd) {
 			partInfo = map64kPositionToPart.get(headerIndexNoEnd);
-			if (partInfo == null
-					|| globalStartPos + len > partInfo.startPos + partInfo.len) {
+			if (partInfo == null || globalStartPos
+					+ len > partInfo.torrentDataStartPos + partInfo.len) {
 				return false;
 			}
 		}
@@ -260,10 +267,10 @@ public class PartFile
 		byte[] partInfoBytes = new byte[partInfo.len];
 		FileInputStream is = new FileInputStream(partsFile);
 		try {
-			long skip = is.skip(partInfo.startPos);
-			if (skip != partInfo.startPos) {
+			long skip = is.skip(partInfo.partFileStartPos);
+			if (skip != partInfo.partFileStartPos) {
 				throw new EOFException(
-						"Skip " + partInfo.startPos + " skipped " + skip);
+						"Skip " + partInfo.partFileStartPos + " skipped " + skip);
 			}
 			is.read(partInfoBytes);
 		} finally {
@@ -285,7 +292,7 @@ public class PartFile
 				PartInfo partInfo = map64kPositionToPart.get(partIndex);
 				int partStartPos = (int) (torrentDataStartPos % SIZE_64_K);
 				int partRemaining = SIZE_64_K - partStartPos;
-				long partfileStartPos = partInfo.startPos + partStartPos;
+				long partfileStartPos = partInfo.partFileStartPos + partStartPos;
 
 				long skip = is.skip(partfileStartPos);
 				if (skip != partfileStartPos) {
