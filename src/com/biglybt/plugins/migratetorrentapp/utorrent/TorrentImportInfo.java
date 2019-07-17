@@ -566,6 +566,9 @@ public class TorrentImportInfo
 			try {
 				byte[] bytes = FileUtil.readFileAsByteArray(_torrentFile);
 				Map<String, Object> existing_map = BDecoder.decode(bytes);
+
+				boolean needsTempTorrentFile = false;
+
 				boolean hasEncoding = existing_map != null
 						&& existing_map.containsKey("encoding");
 				if (hasEncoding) {
@@ -583,15 +586,29 @@ public class TorrentImportInfo
 										"path.utf-8 and encoding key found in .torrent file. Removing encoding key so BiglyBT reads it properly").append(
 												NL);
 								existing_map.remove("encoding");
-								File tempTorrentFile = File.createTempFile("Migrate_",
-										".torrent", AETemporaryFileHandler.getTempDirectory());
-								tempTorrentFile.deleteOnExit();
-								FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
-										BEncoder.encode(existing_map));
-								_torrentFile = tempTorrentFile;
+								needsTempTorrentFile = true;
 							}
 						}
 					}
+				}
+				Map pp = MapUtils.getMapMap(existing_map,
+						TOTorrent.AZUREUS_PRIVATE_PROPERTIES, null);
+				if (pp != null
+						&& (pp.remove(TorrentUtils.TORRENT_AZ_PROP_INITIAL_LINKAGE2) != null
+								|| pp.remove(
+										TorrentUtils.TORRENT_AZ_PROP_INITIAL_LINKAGE) != null)) {
+					needsTempTorrentFile = true;
+					logInfo.append(
+							"Initial linkage found in .torrent file. Removing.").append(NL);
+				}
+
+				if (needsTempTorrentFile) {
+					File tempTorrentFile = File.createTempFile("Migrate_", ".torrent",
+							AETemporaryFileHandler.getTempDirectory());
+					tempTorrentFile.deleteOnExit();
+					FileUtil.writeBytesAsFile2(tempTorrentFile.getAbsolutePath(),
+							BEncoder.encode(existing_map));
+					_torrentFile = tempTorrentFile;
 				}
 
 				torrent = TorrentUtils.readDelegateFromFile(_torrentFile, false);
