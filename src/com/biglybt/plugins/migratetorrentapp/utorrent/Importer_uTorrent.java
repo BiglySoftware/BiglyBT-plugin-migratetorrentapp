@@ -384,10 +384,10 @@ public class Importer_uTorrent
 				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
 
 		File logFile = new File(new File(pi.getUtilities().getUserDir(), "logs"),
-				"uT_Migrate_Public_" + (System.currentTimeMillis() / 1000) + ".log");
+				"uT_Migrate_Secret_" + (System.currentTimeMillis() / 1000) + ".log");
 		File logFileHidden = new File(
 				new File(pi.getUtilities().getUserDir(), "logs"),
-				"uT_Migrate_Private_" + (System.currentTimeMillis() / 1000) + ".log");
+				"uT_Migrate_Shareable_" + (System.currentTimeMillis() / 1000) + ".log");
 
 		sbMigrateLog.append("This log was written with secrets to ").append(
 				logFile.getAbsolutePath()).append(NL);
