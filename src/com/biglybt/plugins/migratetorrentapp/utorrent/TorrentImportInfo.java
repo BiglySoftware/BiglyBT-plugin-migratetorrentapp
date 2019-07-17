@@ -19,6 +19,7 @@
 package com.biglybt.plugins.migratetorrentapp.utorrent;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.Inet6Address;
@@ -42,6 +43,7 @@ import com.biglybt.core.torrent.TOTorrentFile;
 import com.biglybt.core.util.*;
 import com.biglybt.core.util.TorrentUtils.ExtendedTorrent;
 import com.biglybt.plugins.migratetorrentapp.Utils;
+import com.biglybt.plugins.migratetorrentapp.utorrent.PartConvertInfo.PartConvertRange;
 import com.biglybt.util.MapUtils;
 
 import com.biglybt.pif.torrent.TorrentAttribute;
@@ -208,6 +210,8 @@ public class TorrentImportInfo
 	private long havePieceBytes;
 
 	private String caption;
+
+	private List<PartConvertInfo> partConversions = new ArrayList<>();
 
 	public TorrentImportInfo(Importer_uTorrent importer, File torrentFile,
 			String torrentKey, Map<String, Object> map, String origTorrentFilePath) {
@@ -911,7 +915,8 @@ public class TorrentImportInfo
 
 			int fileIndex = ((Number) o0).intValue();
 
-			if (torrentFiles != null && newPath.equals(torrentFiles[fileIndex].getRelativePath())) {
+			if (torrentFiles != null
+					&& newPath.equals(torrentFiles[fileIndex].getRelativePath())) {
 				// This happens on Simple Torrents. uT will set a link which is the same as relative path
 				// BiglyBT doesn't need to create a link for these
 				continue;
@@ -986,7 +991,8 @@ public class TorrentImportInfo
 					% DiskManager.BLOCK_SIZE;
 			long fileStartBlockBytes = Math.min(fileLength,
 					DiskManager.BLOCK_SIZE - fileStartsIntoBlockPos);
-			long fileStartsAtGlobalBlockNo = runningTorrentSize / DiskManager.BLOCK_SIZE;
+			long fileStartsAtGlobalBlockNo = runningTorrentSize
+					/ DiskManager.BLOCK_SIZE;
 
 			runningTorrentSize += fileLength;
 			long fileEndsAtGlobalPos = runningTorrentSize - 1;
@@ -1003,7 +1009,8 @@ public class TorrentImportInfo
 			long fileEndsAtBlockNo = fileEndsIntoPiecePos / DiskManager.BLOCK_SIZE;
 			long fileEndsIntoBlockPos = fileEndsIntoPiecePos % DiskManager.BLOCK_SIZE;
 			long fileEndBlockBytes = Math.min(fileLength, fileEndsIntoBlockPos + 1);
-			long fileEndsAtGlobalBlockNo = fileEndsAtGlobalPos / DiskManager.BLOCK_SIZE;
+			long fileEndsAtGlobalBlockNo = fileEndsAtGlobalPos
+					/ DiskManager.BLOCK_SIZE;
 
 			//System.out.println(i + ": " + fileSkipState[i] + ": " + torrentFiles[i].getRelativePath() + ": " + fileStartsAtPiece + " to " + fileEndsAtPiece + "; " + (fileStartPieceBytes) + "/" + (fileEndPieceBytes) + "; " + fileStartsAtGlobalBlockNo + "/" + fileEndsAtGlobalBlockNo);
 
@@ -1076,61 +1083,64 @@ public class TorrentImportInfo
 			if (new File(dirSavePath, relativePath).isFile()) {
 				continue;
 			}
-			// Still no file, try to find it
-			File foundFile = findFile(relativePath, dirSavePath, fileLength);
-			if (foundFile.isFile()) {
-				String existingFileLink = fileLinks.put(i, foundFile.getAbsolutePath());
-				mapRelinked.put(i + (existingFileLink == null ? "" : "*"),
-						relativePath);
-				continue;
-			}
 
 			if (fileSkipState != null && fileSkipState[i]) {
 				boolean needStartPart = fileStartsIntoPiecePos != 0;
 				if (needStartPart) {
 					// We don't really need start part if previous file(s) were skipped until previous piece #
 					int prevNonSkippedIndex = i - 1;
-					long prevRunningTorrentSize = fileStartsAtGlobalPos;
-					while (prevNonSkippedIndex > 0) {
-						if (fileSkipState[prevNonSkippedIndex]) {
-							prevRunningTorrentSize -= torrentFiles[prevNonSkippedIndex].getLength();
-							long prevStartsAtPieceNo = prevRunningTorrentSize / pieceLength;
-							if (prevStartsAtPieceNo < fileStartsAtPieceNo) {
-								// on new piece number, don't need end part
-								needStartPart = false;
-								break;
-							}
-						} else {
-							// still on same piece number, so we need start part
+					long prevEndGlobalPos = fileStartsAtGlobalPos - 1;
+					while (prevNonSkippedIndex >= 0) {
+						if (!fileSkipState[prevNonSkippedIndex]) {
+							// prev file isn't skipped and we still are on same piece number, 
+							// so we need start part
 							break;
 						}
+
+						long prevEndsAtPieceNo = prevEndGlobalPos / pieceLength;
+						if (prevEndsAtPieceNo < fileStartsAtPieceNo) {
+							// on new piece number, don't need end part
+							needStartPart = false;
+							break;
+						}
+
+						prevEndGlobalPos -= torrentFiles[prevNonSkippedIndex].getLength();
 						prevNonSkippedIndex--;
+					}
+					if (prevNonSkippedIndex < 0) {
+						// all previous files skipped, so we don't need this file's start part
+						needStartPart = false;
 					}
 				}
 				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
 				if (needEndPart) {
 					// We don't really need end part if next file(s) are skipped until next piece
 					int nextNonSkippedIndex = i + 1;
-					long nextRunningTorrentSize = runningTorrentSize;
+					long nextStartGlobalPos = runningTorrentSize;
 					while (nextNonSkippedIndex < fileSkipState.length) {
-						if (fileSkipState[nextNonSkippedIndex]) {
-							nextRunningTorrentSize += torrentFiles[nextNonSkippedIndex].getLength();
-							long nextStartsAtPieceNo = nextRunningTorrentSize / pieceLength;
-							if (nextStartsAtPieceNo > fileEndsAtPieceNo) {
-								// on new piece number, don't need end part
-								needEndPart = false;
-								break;
-							}
-						} else {
+						if (!fileSkipState[nextNonSkippedIndex]) {
 							// still on same piece number, so we need end part
 							break;
 						}
+						long nextStartsAtPieceNo = nextStartGlobalPos / pieceLength;
+						if (nextStartsAtPieceNo > fileEndsAtPieceNo) {
+							// on new piece number, don't need end part
+							needEndPart = false;
+							break;
+						}
+
+						nextStartGlobalPos += torrentFiles[nextNonSkippedIndex].getLength();
 						nextNonSkippedIndex++;
+					}
+					if (nextNonSkippedIndex >= fileSkipState.length) {
+						// All next files skipped, dont need thi file's end part
+						needEndPart = false;
 					}
 				}
 				if (needStartPart || needEndPart) {
 					if (partFile == null) {
-						partFile = PartFile.getFromSaveLocation(torrent, new File(dirSavePath));
+						partFile = PartFile.getFromSaveLocation(torrent,
+								new File(dirSavePath));
 					}
 					if (partFile != null && partFile.hasPartFile()) {
 
@@ -1142,7 +1152,8 @@ public class TorrentImportInfo
 
 						if (needEndPart) {
 							hasBytes &= partFile.hasByteRange(
-									fileEndsAtGlobalPos - fileEndPieceBytes + 1, fileEndPieceBytes);
+									fileEndsAtGlobalPos - fileEndPieceBytes + 1,
+									fileEndPieceBytes);
 						}
 
 						if (hasBytes) {
@@ -1153,10 +1164,19 @@ public class TorrentImportInfo
 							logInfo.append(Utils.wrapString(relativePath));
 							logInfo.append(" in ~uTorrentPartFile");
 							logInfo.append(NL);
-							
-							// TODO: Store that we need to pull the part file data into
-							//       a format BiglyBT can use.
-							
+
+							File destFile = new File(dirSavePath, relativePath);
+							PartConvertInfo partConvertInfo = new PartConvertInfo(partFile,
+									destFile);
+							if (needStartPart) {
+								partConvertInfo.add(fileStartsAtGlobalPos, fileStartPieceBytes);
+							}
+							if (needEndPart) {
+								partConvertInfo.add(fileEndsAtGlobalPos - fileEndPieceBytes + 1,
+										fileEndPieceBytes);
+							}
+							partConversions.add(partConvertInfo);
+
 							continue;
 						} else {
 							logWarnings.append(
@@ -1179,6 +1199,15 @@ public class TorrentImportInfo
 						}
 					}
 				}
+			}
+
+			// Still no file, try to find it
+			File foundFile = findFile(relativePath, dirSavePath, fileLength);
+			if (foundFile.isFile()) {
+				String existingFileLink = fileLinks.put(i, foundFile.getAbsolutePath());
+				mapRelinked.put(i + (existingFileLink == null ? "" : "*"),
+						relativePath);
+				continue;
 			}
 
 			mapNotFound.put(i, fileLink == null ? relativePath : fileLink);
@@ -1352,6 +1381,40 @@ public class TorrentImportInfo
 			sbMigrateLog.append(Utils.wrapString(existingDM.getDisplayName())).append(
 					NL);
 			return sbMigrateLog;
+		}
+
+		if (partConversions.size() > 0) {
+			for (PartConvertInfo partConversion : partConversions) {
+				if (partConversion.destFile.exists()) {
+					sbMigrateLog.append("Skipping migration of uTorrentPartFile to ");
+					sbMigrateLog.append(
+							Utils.wrapString(partConversion.destFile.getAbsolutePath()));
+					sbMigrateLog.append(". File already exists").append(NL);
+					continue;
+				}
+				FileOutputStream os = null;
+				try {
+					os = new FileOutputStream(partConversion.destFile);
+					for (PartConvertRange range : partConversion.ranges) {
+						partConversion.partFile.writeTorrentData(os,
+								range.torrentDataStartPos, range.len);
+					}
+				} catch (IOException e) {
+					String err = Utils.getErrorAndHideStuff(e);
+					sbMigrateLog.append("Error writing uTorrentPartFile to ");
+					sbMigrateLog.append(
+							Utils.wrapString(partConversion.destFile.getAbsolutePath()));
+					sbMigrateLog.append(NL).append("\t");
+					sbMigrateLog.append(err).append(NL);
+				} finally {
+					if (os != null) {
+						try {
+							os.close();
+						} catch (IOException e) {
+						}
+					}
+				}
+			}
 		}
 
 		startMode = DownloadManager.STATE_STOPPED; // TODO: Remove me or add option

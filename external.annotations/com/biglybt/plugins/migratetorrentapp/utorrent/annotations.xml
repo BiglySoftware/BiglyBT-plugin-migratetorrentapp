@@ -38,6 +38,36 @@
     <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent java.lang.String replaceFolders(java.lang.String) 0'>
         <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartConvertInfo PartConvertInfo(com.biglybt.plugins.migratetorrentapp.utorrent.PartFile, java.io.File) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartConvertInfo PartConvertInfo(com.biglybt.plugins.migratetorrentapp.utorrent.PartFile, java.io.File) 1'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartConvertInfo destFile'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartConvertInfo partFile'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile PartFile(com.biglybt.core.torrent.TOTorrent, java.io.File) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile PartFile(com.biglybt.core.torrent.TOTorrent, java.io.File) 1'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile byte[] readPart(com.biglybt.plugins.migratetorrentapp.utorrent.PartFile.PartInfo) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile com.biglybt.plugins.migratetorrentapp.utorrent.PartFile getFromSaveLocation(com.biglybt.core.torrent.TOTorrent, java.io.File) 0'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile partsFile'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.PartFile torrent'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
     <item name='com.biglybt.plugins.migratetorrentapp.utorrent.SettingsImportInfo SettingsImportInfo(com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent) 0'>
         <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>

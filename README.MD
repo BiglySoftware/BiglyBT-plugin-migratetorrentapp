@@ -16,6 +16,7 @@ You will be able to review the changes before applying them.
 1. Partial and Full Block completion status
 1. File renames and relocations
 1. File priorities
+1. Skipped files sharing pieces with non-skipped (~uTorrentPartFile_`[0-9A-Z]+`.dat parsing)
 1. Statistics (bytes downloaded, uploaded, etc)
 1. Speed Limits
 1. Labels

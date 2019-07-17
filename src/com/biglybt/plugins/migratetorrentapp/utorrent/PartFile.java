@@ -18,8 +18,7 @@
 
 package com.biglybt.plugins.migratetorrentapp.utorrent;
 
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.*;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -84,44 +83,35 @@ public class PartFile
 
 	private TOTorrent torrent;
 
-	private File partsFile;
+	private final File partsFile;
 
-	private int numParts;
+	private int numPartsInTorrent;
 
-	private Map<Integer, Integer> mapHeaderIndexToPartIndex;
-
-	private Map<Integer, PartInfo> mapParts;
+	private final Map<Integer, PartInfo> map64kPositionToPart = new HashMap<>();
 
 	private int lastPartSize;
 
-	private long pieceLength;
-
 	public static class PartInfo
 	{
-		final int index;
-
 		final long startPos;
-
-		final byte[] data;
 
 		final int len;
 
-		public PartInfo(int index, long startPos, byte[] data, int len) {
-			this.index = index;
+		public PartInfo(long startPos, int len) {
 			this.startPos = startPos;
-			this.data = data;
 			this.len = len;
 		}
 
 		public String toDebugString() {
 			return "Data for range " + startPos + " to " + (startPos + len) + " ("
-					+ len + " bytes) stored in index " + index + Utils.NL;
+					+ len + " bytes)" + Utils.NL;
 		}
 	}
 
-	public static PartFile getFromSaveLocation(TOTorrent torrent, File saveLocation) {
-		File file = new File(saveLocation,
-				"~uTorrentPartFile_" + Long.toHexString(torrent.getSize()) + ".dat");
+	public static PartFile getFromSaveLocation(TOTorrent torrent,
+			File saveLocation) {
+		File file = new File(saveLocation, "~uTorrentPartFile_"
+				+ Long.toHexString(torrent.getSize()).toUpperCase() + ".dat");
 		if (file.exists()) {
 			return new PartFile(torrent, file);
 		}
@@ -129,72 +119,71 @@ public class PartFile
 	}
 
 	public boolean hasPartFile() {
-		return mapHeaderIndexToPartIndex != null;
+		return map64kPositionToPart.size() > 0;
 	}
 
 	public PartFile(TOTorrent torrent, File partsFile) {
 		this.torrent = torrent;
 		this.partsFile = partsFile;
 		try {
-			Pattern pat = Pattern.compile("_([A-Z0-9]+)\\.", Pattern.CASE_INSENSITIVE);
+			Pattern pat = Pattern.compile("_([A-Z0-9]+)\\.",
+					Pattern.CASE_INSENSITIVE);
 			Matcher matcher = pat.matcher(partsFile.getName());
 			if (!matcher.find()) {
 				return;
 			}
 			torrentDataSize = Long.parseLong(matcher.group(1), 16);
 
-			numParts = (int) ((torrentDataSize + (SIZE_64_K - 1)) / SIZE_64_K);
+			numPartsInTorrent = (int) ((torrentDataSize + (SIZE_64_K - 1))
+					/ SIZE_64_K);
+
+			byte[] partInfoBytes = new byte[numPartsInTorrent * 4];
 
 			FileInputStream is = new FileInputStream(partsFile);
+			try {
+				is.read(partInfoBytes);
+			} finally {
+				is.close();
+			}
 
 			Map<Integer, Integer> mapPartIndexToHeaderIndex = new HashMap<>();
-			mapHeaderIndexToPartIndex = new HashMap<>();
-
-			byte[] partInfoBytes = new byte[numParts * 4];
-			is.read(partInfoBytes);
 
 			ByteBuffer bb = ByteBuffer.wrap(partInfoBytes);
 			bb.order(ByteOrder.LITTLE_ENDIAN);
-			for (int i = 0; i < numParts; i++) {
+			for (int i = 0; i < numPartsInTorrent; i++) {
 				int partIndex = bb.getInt();
 				if (partIndex == 0) {
 					continue;
 				}
 				mapPartIndexToHeaderIndex.put(partIndex, i);
-				mapHeaderIndexToPartIndex.put(i, partIndex);
 			}
 
-			partInfoBytes = null;
+			long dataLen = partsFile.length() - (numPartsInTorrent * 4);
+			lastPartSize = (int) (dataLen % SIZE_64_K);
+			if (lastPartSize == 0) {
+				lastPartSize = SIZE_64_K;
+			}
 
-			mapParts = new HashMap<>();
-			int partIndex = 1;
-
-			while (true) {
-				byte[] partData = new byte[SIZE_64_K];
-				int read = is.read(partData);
-				if (read == -1) {
-					lastPartSize = SIZE_64_K;
-					break;
-				}
+			int numParts = mapPartIndexToHeaderIndex.size();
+			for (int partIndex = 1; partIndex <= numParts; partIndex++) {
 				Integer headerIndex = mapPartIndexToHeaderIndex.get(partIndex);
-				long startPos = headerIndex * SIZE_64_K;
-				mapParts.put(partIndex,
-						new PartInfo(partIndex, startPos, partData, read));
-
-				partIndex++;
-				if (read < partData.length) {
-					lastPartSize = read;
-					break;
+				if (headerIndex == null) {
+					System.err.println(
+							"Part " + partIndex + " doesn't have a header entry");
+					continue;
 				}
+				long startPos = headerIndex * SIZE_64_K;
+				int len = partIndex == numParts ? lastPartSize : SIZE_64_K;
+				PartInfo partInfo = new PartInfo(startPos, len);
+				map64kPositionToPart.put(headerIndex, partInfo);
 			}
-
-			pieceLength = torrent.getPieceLength();
 
 		} catch (Throwable e) {
 			e.printStackTrace();
 		}
 	}
 
+	@SuppressWarnings("All")
 	public static void main(String[] args) {
 		System.setProperty("transitory.startup", "1");
 		System.setProperty("no_diag_logger", "1");
@@ -224,23 +213,20 @@ public class PartFile
 		StringBuilder sb = new StringBuilder();
 
 		sb.append(partsFile).append(Utils.NL);
-		sb.append("Data Size: " + torrentDataSize).append(Utils.NL);
+		sb.append("Data Size: ").append(torrentDataSize).append(Utils.NL);
 		if (torrentDataSize != torrent.getSize()) {
-			sb.append("DATA SIZE DOES NOT MATCH .torrent's size field of "
-					+ torrent.getSize()).append(Utils.NL);
+			sb.append("DATA SIZE DOES NOT MATCH .torrent's size field of ").append(
+					torrent.getSize()).append(Utils.NL);
 		}
 
-		sb.append("# 64k parts: " + numParts).append(Utils.NL);
+		sb.append("# 64k parts in torrent: ").append(numPartsInTorrent).append(
+				Utils.NL);
 
-		sb.append(mapHeaderIndexToPartIndex).append(Utils.NL);
+		sb.append("# 64k parts in partfile: ").append(
+				map64kPositionToPart.size()).append(Utils.NL);
+		sb.append("Last 64k part Size: ").append(lastPartSize).append(Utils.NL);
 
-		sb.append("# 64k Parts Read: " + mapParts.size()).append(Utils.NL);
-		sb.append("last 64k Part Size: " + lastPartSize).append(Utils.NL);
-
-		sb.append("Torrent Piece Length: " + pieceLength).append(Utils.NL);
-
-		for (Integer partIndex : mapParts.keySet()) {
-			PartInfo partInfo = mapParts.get(partIndex);
+		for (PartInfo partInfo : map64kPositionToPart.values()) {
 			sb.append(partInfo.toDebugString());
 		}
 
@@ -249,11 +235,7 @@ public class PartFile
 
 	public boolean hasByteRange(long globalStartPos, long len) {
 		int headerIndexNoStart = (int) (globalStartPos / SIZE_64_K);
-		Integer partIndex = mapHeaderIndexToPartIndex.get(headerIndexNoStart);
-		if (partIndex == null) {
-			return false;
-		}
-		PartInfo partInfo = mapParts.get(partIndex);
+		PartInfo partInfo = map64kPositionToPart.get(headerIndexNoStart);
 		if (partInfo == null) {
 			return false;
 		}
@@ -263,16 +245,67 @@ public class PartFile
 		}
 		int headerIndexNoEnd = (int) ((globalStartPos + len - 1) / SIZE_64_K);
 		if (headerIndexNoStart != headerIndexNoEnd) {
-			partIndex = mapHeaderIndexToPartIndex.get(headerIndexNoEnd);
-			if (partIndex == null) {
-				return false;
-			}
-			partInfo = mapParts.get(partIndex);
-			if (partInfo == null || globalStartPos + len > partInfo.startPos + partInfo.len) {
+			partInfo = map64kPositionToPart.get(headerIndexNoEnd);
+			if (partInfo == null
+					|| globalStartPos + len > partInfo.startPos + partInfo.len) {
 				return false;
 			}
 		}
 
 		return true;
+	}
+
+	public byte[] readPart(PartInfo partInfo)
+			throws IOException {
+		byte[] partInfoBytes = new byte[partInfo.len];
+		FileInputStream is = new FileInputStream(partsFile);
+		try {
+			long skip = is.skip(partInfo.startPos);
+			if (skip != partInfo.startPos) {
+				throw new EOFException(
+						"Skip " + partInfo.startPos + " skipped " + skip);
+			}
+			is.read(partInfoBytes);
+		} finally {
+			is.close();
+		}
+
+		return partInfoBytes;
+	}
+
+	public void writeTorrentData(OutputStream os, long torrentDataStartPos,
+			long len)
+			throws IOException {
+		byte[] data = new byte[SIZE_64_K];
+
+		FileInputStream is = new FileInputStream(partsFile);
+		try {
+			while (len > 0) {
+				int partIndex = (int) (torrentDataStartPos / SIZE_64_K);
+				PartInfo partInfo = map64kPositionToPart.get(partIndex);
+				int partStartPos = (int) (torrentDataStartPos % SIZE_64_K);
+				int partRemaining = SIZE_64_K - partStartPos;
+				long partfileStartPos = partInfo.startPos + partStartPos;
+
+				long skip = is.skip(partfileStartPos);
+				if (skip != partfileStartPos) {
+					throw new EOFException(
+							"Skip " + partfileStartPos + " skipped " + skip);
+				}
+				int bytesRead = is.read(data, 0, (int) Math.min(partRemaining, len));
+
+				if (bytesRead == -1) {
+					throw new EOFException();
+				}
+
+				os.write(data, 0, bytesRead);
+
+				torrentDataStartPos += bytesRead;
+				len -= bytesRead;
+
+			}
+		} finally {
+			is.close();
+		}
 	}
 }
