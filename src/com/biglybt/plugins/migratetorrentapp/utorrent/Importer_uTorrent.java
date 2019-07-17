@@ -365,11 +365,14 @@ public class Importer_uTorrent
 					sbMigrateLog.append(NL);
 					sbMigrateLog.append("Torrent ").append(
 							Utils.wrapString(importInfo.getName())).append(
-									"Migration Log:").append(NL);
-					sbMigrateLog.append(results).append(NL).append("\t");
-					sbMigrateLog.append(
-							importInfo.toDebugString(true).replaceAll(NL, NL + "\t"));
-					sbMigrateLog.append(NL);
+									" Migration Log:").append(NL);
+					sbMigrateLog.append(results).append(NL);
+					if (results.indexOf("Already exists in BiglyBT") == -1) {
+						sbMigrateLog.append("\t");
+						sbMigrateLog.append(
+								importInfo.toDebugString(true).replaceAll(NL, NL + "\t"));
+						sbMigrateLog.append(NL);
+					}
 				}
 			} catch (Throwable t) {
 				String err = Utils.getErrorAndHideStuff(t, importInfo.dirSavePath);
