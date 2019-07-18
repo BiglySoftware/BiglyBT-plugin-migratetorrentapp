@@ -1135,8 +1135,8 @@ public class TorrentImportInfo
 						needStartPart = false;
 					}
 				}
-				boolean needEndPart = fileStartsAtPieceNo != fileEndsAtPieceNo
-						&& fileEndsIntoPiecePos != pieceLength - 1;
+
+				boolean needEndPart = fileEndsIntoPiecePos != pieceLength - 1;
 				if (needEndPart) {
 					// We don't really need end part if next file(s) are skipped until next piece
 					int nextNonSkippedIndex = i + 1;
@@ -1181,6 +1181,8 @@ public class TorrentImportInfo
 						}
 
 						if (hasBytes) {
+							// TODO: We could check BiglyBT settings for BCFG_ENABLE_SUBFOLDER_FOR_DND_FILES and
+							// link partial file into that dir
 							File destFile = new File(dirSavePath, relativePath);
 							PartConvertInfo partConvertInfo = new PartConvertInfo(partFile,
 									destFile, i);
@@ -1470,7 +1472,9 @@ public class TorrentImportInfo
 		}
 
 		startMode = DownloadManager.STATE_STOPPED; // TODO: Remove me or add option
-		File fileDirSavePath = new File(dirSavePath);
+		File fileDirSavePath = torrent.isSimpleTorrent()
+				? new File(dirSavePath, torrent.getFiles()[0].getRelativePath())
+				: new File(dirSavePath);
 		DownloadManager dm = importer.gm.addDownloadManager(
 				torrentFile.getAbsolutePath(), infoHash, fileDirSavePath.getParent(),
 				fileDirSavePath.getName(), startMode, true, order == -1,
