@@ -52,13 +52,13 @@ import com.biglybt.ui.swt.pif.UISWTView;
 import com.biglybt.ui.swt.pif.UISWTViewEvent;
 import com.biglybt.ui.swt.pif.UISWTViewEventListener;
 import com.biglybt.ui.swt.pifimpl.MultiParameterImplListenerSWT;
-import com.biglybt.ui.swt.utils.FontUtils;
 import com.biglybt.ui.swt.views.ConfigView;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.ui.config.Parameter;
 import com.biglybt.pif.ui.config.ParameterListener;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
+import com.biglybt.pif.utils.LocaleUtilities;
 
 import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
 import static com.biglybt.plugins.migratetorrentapp.Utils.hidePrivate;
@@ -71,6 +71,8 @@ public class MigrateViewEventListener
 	private Composite parent;
 
 	private PluginInterface pi;
+
+	LocaleUtilities localeUtilities;
 
 	private ConfigModel_uTorrent configModelInfo;
 
@@ -94,7 +96,9 @@ public class MigrateViewEventListener
 			case UISWTViewEvent.TYPE_CREATE:
 				swtView = (UISWTView) event.getData();
 				pi = swtView.getPluginInterface();
-				swtView.setTitle("Migrate");
+				localeUtilities = pi.getUtilities().getLocaleUtilities();
+				swtView.setTitle(localeUtilities.getLocalisedMessageText(
+						"migrateapp.sidebar.title"));
 				break;
 
 			case UISWTViewEvent.TYPE_DESTROY:
@@ -113,7 +117,8 @@ public class MigrateViewEventListener
 			case UISWTViewEvent.TYPE_LANGUAGEUPDATE:
 				Messages.updateLanguageForControl(getComposite());
 				if (swtView != null) {
-					swtView.setTitle("Migrate");
+					swtView.setTitle(localeUtilities.getLocalisedMessageText(
+							"migrateapp.sidebar.title"));
 				}
 				break;
 		}
@@ -140,7 +145,7 @@ public class MigrateViewEventListener
 				return;
 			}
 			goingToRecalcSC = true;
-			Utils.execSWTThreadLater(10, () -> recalcScrolledComposite());
+			Utils.execSWTThreadLater(10, this::recalcScrolledComposite);
 		});
 
 		GridData gridData = new GridData(GridData.FILL_BOTH);
@@ -156,13 +161,6 @@ public class MigrateViewEventListener
 		GridLayout gridLayout = new GridLayout(2, false);
 		gridLayout.verticalSpacing = 10;
 		composite.setLayout(gridLayout);
-
-		Label label = new Label(composite, SWT.BORDER);
-		label.setText("ALPHA RELEASE");
-		gridData = new GridData(GridData.FILL_HORIZONTAL);
-		gridData.horizontalSpan = 2;
-		FontUtils.setFontHeight(label, 12, SWT.BOLD);
-		label.setLayoutData(gridData);
 
 		// Hack the config model into our composite. muah ha ha!
 
@@ -197,9 +195,7 @@ public class MigrateViewEventListener
 		cResultsArea.setLayoutData(gridData);
 		cResultsArea.setLayout(new GridLayout());
 
-		paramSAOListener = param -> {
-			recalcScrolledComposite();
-		};
+		paramSAOListener = param -> recalcScrolledComposite();
 		configModelInfo.paramShowAdditionalOptions.addListener(paramSAOListener);
 
 		configModelInfo.addListener(this);
@@ -309,6 +305,7 @@ public class MigrateViewEventListener
 		});
 	}
 
+	@Override
 	public void analysisComplete(Importer_uTorrent importer) {
 		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents,
 				true);
@@ -353,7 +350,6 @@ public class MigrateViewEventListener
 		String nl = NL + "│ ";
 		String s;
 
-
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		s = importer.settingsImportInfo.toDebugString(
 				showOnlyWarningTorrents).replaceAll(NL, nl);
@@ -362,7 +358,6 @@ public class MigrateViewEventListener
 		sb.append(NL);
 		sb.append("└──────────────────────────────────────────────────");
 		sb.append(NL).append(NL);
-
 
 		sb.append("┌─────────────────────────────────────────────────").append(nl);
 		sb.append(importer.listTorrentsToImport.size()).append(

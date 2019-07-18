@@ -23,6 +23,9 @@
     <item name='com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent.MigrateListener[] getListeners()'>
         <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>
+    <item name='com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent java.io.File getConfigDir_Windows(java.lang.String)'>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
+    </item>
     <item name='com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent Importer_uTorrent(com.biglybt.pif.PluginInterface, com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent) 0'>
         <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>
