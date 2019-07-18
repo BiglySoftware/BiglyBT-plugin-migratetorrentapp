@@ -270,40 +270,64 @@ public class ConfigModel_uTorrent
 	}
 
 	private File getConfigDir_OSX() {
-		return new File(System.getProperty("user.home")
-				+ "/Library/Application Support/uTorrent");
+		String userHome = System.getProperty("user.home");
+		File dirUT = new File(userHome + "/Library/Application Support/uTorrent");
+		File dirBT = new File(userHome + "/Library/Application Support/BitTorrent");
+		long utLastModified = dirUT.lastModified();
+		long btLastModified = dirBT.lastModified();
+		return btLastModified > utLastModified ? dirBT : dirUT;
 	}
 
 	private static File getConfigDir_Windows() {
+		File dirUT = getConfigDir_Windows("uTorrent");
+		File dirBT = getConfigDir_Windows("BitTorrent");
+		long utLastModified = dirUT.lastModified();
+		long btLastModified = dirBT.lastModified();
+		return btLastModified > utLastModified ? dirBT : dirUT;
+	}
+
+	private static File getConfigDir_Windows(String appName) {
+		File dir = null;
+
 		AEWin32Access accessor = AEWin32Manager.getAccessor(true);
 		if (accessor != null) {
 			try {
 				String installLocation = accessor.readStringValue(
 						AEWin32Access.HKEY_CURRENT_USER,
-						"software\\microsoft\\windows\\currentversion\\uninstall\\uTorrent",
+						"software\\microsoft\\windows\\currentversion\\uninstall\\"
+								+ appName,
 						"InstallLocation");
 				if (installLocation != null || !installLocation.isEmpty()) {
-					return new File(installLocation);
+					dir = new File(installLocation);
 				}
 			} catch (AEWin32AccessException e) {
 			}
 
-			try {
-				String userAppData = accessor.getUserAppData();
-				if (userAppData != null && !userAppData.isEmpty()) {
-					return new File(userAppData, "uTorrent");
+			if (dir == null) {
+				try {
+					String userAppData = accessor.getUserAppData();
+					if (userAppData != null && !userAppData.isEmpty()) {
+						dir = new File(userAppData, appName);
+					}
+				} catch (AEWin32AccessException e) {
 				}
-			} catch (AEWin32AccessException e) {
 			}
 		}
 
-		String temp_user_path = SystemProperties.getEnvironmentalVariable(
-				"APPDATA");
-		if (temp_user_path != null && !temp_user_path.isEmpty()) {
-			return new File(temp_user_path, "uTorrent");
+		if (dir == null) {
+			String temp_user_path = SystemProperties.getEnvironmentalVariable(
+					"APPDATA");
+			if (temp_user_path != null && !temp_user_path.isEmpty()) {
+				dir = new File(temp_user_path, appName);
+			}
 		}
 
-		return null;
+		if (dir == null) {
+			dir = new File(System.getProperty("user.home"),
+					"AppData\\Roaming\\" + appName);
+		}
+
+		return dir;
 	}
 
 	public void addListener(MigrateListener l) {
