@@ -97,7 +97,7 @@ public class Importer_uTorrent
 			ConfigModel_uTorrent configModelInfo) {
 		super(pi);
 
-		configModelInfo.analysisStatus("Initializing analysis");
+		configModelInfo.analysisStatus("migrateapp.status.initializingAnalysis");
 
 		this.configModelInfo = configModelInfo;
 		String[] dirsSingle = configModelInfo.paramDataDirsSingle.getValue().split(
@@ -144,7 +144,7 @@ public class Importer_uTorrent
 				continue;
 			}
 			configModelInfo.analysisStatus(
-					"Scanning Additional Torrent Directory " + listTorrentDir);
+					"migrateapp.status.scanningAdditionalTorrentDir", listTorrentDir);
 
 			File[] files = new File(listTorrentDir).listFiles(pathname -> {
 				if (pathname.length() > 1024L * 1024 * 32) {
@@ -156,9 +156,8 @@ public class Importer_uTorrent
 			if (files == null) {
 				continue;
 			}
-			configModelInfo.analysisStatus("Scanning " + files.length
-					+ " .torrent files found in additional torrent directories "
-					+ listTorrentDir);
+			configModelInfo.analysisStatus("migrateapp.status.scanningTorrentFiles",
+					"" + files.length, listTorrentDir);
 			for (File file : files) {
 				try {
 					ExtendedTorrent torrent = TorrentUtils.readDelegateFromFile(file,
@@ -177,16 +176,16 @@ public class Importer_uTorrent
 
 		detectUTOS(configDir);
 
-		configModelInfo.analysisStatus("Analyzing uT Settings");
+		configModelInfo.analysisStatus("migrateapp.status.analyzingSettings");
 
 		settingsImportInfo = new SettingsImportInfo(this);
 		settingsImportInfo.processSettings(configDir);
 
-		configModelInfo.analysisStatus("Analyzing Scan Directories");
+		configModelInfo.analysisStatus("migrateapp.status.analyzingScanDirs");
 
 		buildAdditionalDataDirs();
 
-		configModelInfo.analysisStatus("Analyzing uT Torrents");
+		configModelInfo.analysisStatus("migrateapp.status.analyzingTorrents");
 
 		processResumeFile(configDir);
 
@@ -203,7 +202,7 @@ public class Importer_uTorrent
 
 		Collections.sort(listTorrentsToImport);
 
-		configModelInfo.analysisStatus("Done Analysis");
+		configModelInfo.analysisStatus("migrateapp.status.analysisDone");
 
 		MigrateListener[] listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
@@ -228,7 +227,8 @@ public class Importer_uTorrent
 		if (files == null) {
 			return;
 		}
-		configModelInfo.analysisStatus("Analyzing Scan Directory " + dir);
+		configModelInfo.analysisStatus("migrateapp.status.analyzingScanDir",
+				dir.toString());
 		for (File file : files) {
 			if (file.isFile()) {
 				List<File> filesWithSize = mapFileSizeToScannedFile.computeIfAbsent(
@@ -442,7 +442,8 @@ public class Importer_uTorrent
 					} else {
 						origTorrentFilePath = context;
 					}
-					configModelInfo.analysisStatus("Analyzing Torrent: " + context);
+					configModelInfo.analysisStatus("migrateapp.status.analyzingTorrent",
+							context);
 
 					TorrentImportInfo importInfo = new TorrentImportInfo(this,
 							torrentFile, context, map, origTorrentFilePath);

@@ -337,7 +337,19 @@ public class ConfigModel_uTorrent
 		listeners.add(l);
 	}
 
-	public void analysisStatus(String s) {
+	public void analysisStatus(String statusID) {
+		String s = statusID.isEmpty() ? ""
+				: pi.getUtilities().getLocaleUtilities().getLocalisedMessageText(
+						statusID);
+		MigrateListener[] listeners = getListeners();
+		for (MigrateListener listener : listeners) {
+			listener.analysisStatus(s);
+		}
+	}
+
+	public void analysisStatus(String statusID, String... params) {
+		String s = pi.getUtilities().getLocaleUtilities().getLocalisedMessageText(
+				statusID, params);
 		MigrateListener[] listeners = getListeners();
 		for (MigrateListener listener : listeners) {
 			listener.analysisStatus(s);

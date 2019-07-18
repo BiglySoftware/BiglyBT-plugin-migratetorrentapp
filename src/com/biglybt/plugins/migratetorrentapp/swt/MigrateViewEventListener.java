@@ -30,10 +30,7 @@ import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.FileDialog;
-import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.*;
 
 import com.biglybt.core.internat.MessageText;
 import com.biglybt.core.util.FileUtil;
@@ -184,6 +181,15 @@ public class MigrateViewEventListener
 		}
 
 		////
+
+		Link lblReport = new Link(composite, SWT.WRAP);
+		lblReport.setText(localeUtilities.getLocalisedMessageText(
+				"migrateapp.reportissues", new String[] {
+					"https://github.com/BiglySoftware/BiglyBT-plugin-migratetorrentapp/issues"
+				}));
+		lblReport.addListener(SWT.Selection, event -> Utils.launch(event.text));
+		lblReport.setLayoutData(
+				Utils.getWrappableLabelGridData(2, GridData.FILL_HORIZONTAL));
 
 		lblStatus = new Label(composite, SWT.WRAP);
 		lblStatus.setLayoutData(
