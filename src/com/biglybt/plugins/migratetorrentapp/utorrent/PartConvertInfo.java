@@ -53,11 +53,20 @@ public class PartConvertInfo
 	}
 
 	public PartConvertInfo setStartRange(long torrentDataStartPos, long len) {
+		if (endRange != null && endRange.torrentDataStartPos == torrentDataStartPos
+				&& endRange.len == len) {
+			return this;
+		}
 		startRange = new PartConvertRange(torrentDataStartPos, len);
 		return this;
 	}
 
 	public PartConvertInfo setEndRange(long torrentDataStartPos, long len) {
+		if (startRange != null
+				&& startRange.torrentDataStartPos == torrentDataStartPos
+				&& startRange.len == len) {
+			return this;
+		}
 		endRange = new PartConvertRange(torrentDataStartPos, len);
 		return this;
 	}
