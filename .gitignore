@@ -8,3 +8,4 @@
 *.jar
 *.bak
 *.iml
+/bin/
