@@ -34,6 +34,7 @@ import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.config.StringParameter;
 import com.biglybt.pif.ui.menus.MenuItem;
 import com.biglybt.pif.ui.menus.MenuManager;
+import com.biglybt.pif.utils.LocaleUtilities;
 
 public class MigrateTorrentAppUISWT
 	implements MigrateTorrentAppUI
@@ -71,11 +72,32 @@ public class MigrateTorrentAppUISWT
 		MenuItem menuItem = menuManager.addMenuItem(MenuManager.MENU_MENUBAR_TOOLS,
 				"menu.utorrent.migrate");
 		menuItem.addListener((menu, target) -> {
-			swtInstance.openView("", VIEWID_MIGRATE, configModel_uTorrent);
+			swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
+					configModel_uTorrent);
 		});
 
-		swtInstance.addView("", VIEWID_MIGRATE, MigrateViewEventListener.class,
-				configModel_uTorrent);
+		swtInstance.addView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
+				MigrateViewEventListener.class, configModel_uTorrent);
+
+		boolean showImportPopup = configModel_uTorrent.showImportPopup();
+		if (showImportPopup) {
+			LocaleUtilities localeUtilities = pi.getUtilities().getLocaleUtilities();
+			swtInstance.promptUser(
+					localeUtilities.getLocalisedMessageText("utMigrate.foundApp.title"),
+					localeUtilities.getLocalisedMessageText("utMigrate.foundApp.message"),
+					new String[] {
+						localeUtilities.getLocalisedMessageText("Button.yes"),
+						localeUtilities.getLocalisedMessageText("Button.no"),
+					}, 1, result -> {
+						if (result == 1) {
+							pi.getPluginconfig().setPluginParameter("show.initial.popup",
+									false);
+							return;
+						}
+						swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
+								configModel_uTorrent);
+					});
+		}
 	}
 
 	@Override

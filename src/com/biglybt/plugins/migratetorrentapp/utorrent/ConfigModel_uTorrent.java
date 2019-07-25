@@ -28,7 +28,9 @@ import com.biglybt.platform.win32.access.AEWin32AccessException;
 import com.biglybt.platform.win32.access.AEWin32Manager;
 import com.biglybt.plugins.migratetorrentapp.MigrateTorrentAppUI;
 
+import com.biglybt.pif.PluginConfig;
 import com.biglybt.pif.PluginInterface;
+import com.biglybt.pif.download.Download;
 import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.config.*;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
@@ -257,8 +259,38 @@ public class ConfigModel_uTorrent
 		return this;
 	}
 
+	public boolean showImportPopup() {
+		// Only show when there's 0 non-low noise torrents, and we are on first app version, and we have a real uT/BT dir
+
+		PluginConfig pluginconfig = pi.getPluginconfig();
+		boolean show = pluginconfig.getPluginBooleanParameter("show.initial.popup",
+				true);
+		if (!show) {
+			return false;
+		}
+		Download[] downloads = pi.getDownloadManager().getDownloads(false);
+		if (downloads.length > 10) {
+			return false;
+		}
+		if (downloads.length > 0) {
+			for (Download download : downloads) {
+				if (!download.getFlag(Download.FLAG_LOW_NOISE)) {
+					return false;
+				}
+			}
+		}
+
+		String appVersion = pi.getApplicationVersion();
+		String firstAppVersion = pluginconfig.getUnsafeStringParameter(
+				"First Recorded Version", appVersion);
+		if (!appVersion.equals(firstAppVersion)) {
+			return false;
+		}
+
+		return new File(getDefaultConfigDir(), "settings.dat").isFile();
+	}
+
 	File getDefaultConfigDir() {
-		// TODO: More checks. ie. bittorrent vs utorrent
 		File dir = null;
 		if (pi.getUtilities().isWindows()) {
 			dir = getConfigDir_Windows();
