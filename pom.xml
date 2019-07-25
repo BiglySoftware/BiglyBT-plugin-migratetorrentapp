@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (C) Bigly Software.  All Rights Reserved.
+  ~
+  ~ This program is free software; you can redistribute it and/or
+  ~ modify it under the terms of the GNU General Public License
+  ~ as published by the Free Software Foundation; either version 2
+  ~ of the License, or (at your option) any later version.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program; if not, write to the Free Software
+  ~ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.biglybt.plugins.migratetorrentapp</groupId>
+    <artifactId>biglybt-plugin-migratetorrentapp</artifactId>
+    <version>0.1</version>
+    <build>
+        <sourceDirectory>src</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>8</source>
+                    <target>8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <name>BiglyBT Plugin - Migrate Torrent App</name>
+
+    <url>https://github.com/BiglySoftware/BiglyBT-plugin-migratetorrentapp</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>1.8</java.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>maven-eclipse-repo-fork</id><!-- a repository for swt 4.9 binaries -->
+            <url>https://lislei.github.io/maven-eclipse.github.io/maven</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.biglybt</groupId>
+            <artifactId>biglybt-parent</artifactId>
+            <scope>provided</scope>
+            <version>1.6.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.biglybt</groupId>
+            <artifactId>biglybt-core</artifactId>
+            <scope>provided</scope>
+            <version>1.6.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.biglybt</groupId>
+            <artifactId>biglybt-ui</artifactId>
+            <scope>provided</scope>
+            <version>1.6.0.1-SNAPSHOT</version>
+        </dependency>
+
+    </dependencies>
+
+
+    <profiles>
+        <profile>
+            <id>mac-swt</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.swt</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.x86_64</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>linux-swt</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.swt</groupId>
+                    <artifactId>org.eclipse.swt.gtk.linux.x86_64</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>windows-swt</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.swt</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.x86_64</artifactId>
+                    <version>4.9</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
+    <scm>
+        <connection>scm:git:git@github.com:BiglySoftware/BiglyBT-plugin-migratetorrentapp.git</connection>
+        <developerConnection>scm:git:git@github.com:BiglySoftware/BiglyBT-plugin-migratetorrentapp.git</developerConnection>
+        <tag>master</tag>
+        <url>https://github.com/BiglySoftware/BiglyBT-plugin-migratetorrentapp</url>
+    </scm>
+
+    <issueManagement>
+        <system>github</system>
+        <url>https://github.com/BiglySoftware/BiglyBT-plugin-migratetorrentapp/Issues</url>
+    </issueManagement>
+</project>
