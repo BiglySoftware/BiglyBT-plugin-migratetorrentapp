@@ -1,7 +1,7 @@
 # BiglyBT Plugin - Migrate Torrent App
 
 ```
-This plugin is in alpha.  It's working but not widely tested.
+This plugin is in pre-release.  It's working but not widely tested.
 ```
 
 This BiglyBT plugin migrates uTorrent and BitTorrent client configurations and torrents to BiglyBT.
@@ -35,29 +35,36 @@ You will be able to review the changes before applying them.
 1. Scan additional directories for .torrent files
 1. Find moved files (handy if you organized your files outside of the client)
 1. Remap data directories (handy if you renamed or moved your base data directory)
-1. Cross platform migration (currently just Windows uT config -> Linux/Mac BiglyBT)
+1. Cross platform migration
 
-#### Skipped, Not Supported and Migration Notes
+#### Features Not Supported
+* Altruistic Mode. Depending on your needs the Share Ratio Maximizer plugin might be a good replacement.
+* uT's Advanced->Run Program (global and per-torrent) migration not supported.  Equivilant functionality can be obtained using the Command Runner plugin.
+* Automatic deleting of imported .torrent files
+* uTorrent scheduler option to disable DHT when in 'Turn off' state
+* "Confirm exit if critical seeder" option
 
-* "Enable DHT for new torrents" flag in uT will also change accepting peer sources from any plugin (including P2P)
-* No "Altruistic Mode". Depending on your needs the Share Ratio Maximizer plugin might be a good replacement.
-* Moving .torrent files on completion also required moving data files on completion (Plugin limitation, not a BiglyBT one. In BiglyBT, this can be done with Tags)
-* "Confirm exit if critical seeder" is not supported
-* 'Append the torrent's label' option on 'Move completed downloads' is not migrated.  BiglyBT can handle this feature by setting the "Move On Complete" directory on a specific Tag.
-* BiglyBT doesn't support deleting automatically imported .torrent files
-* BiglyBT does not support the uTorrent scheduler option to disable DHT when in 'Turn off' state
-* Transfer Cap and daily bandwidth usage stats are not currently migrated.
+#### Incompatible Features
+The following features aren't migrated, however, there are alternative solutions:
+* Adjusting or stopping torrents based on Seeding Goals.  You will most likely need to rebuild your goals using First Priority Rules, Ignore Rules, Tagging logic, and/or the AutoPilot plugin.
+* 'Append the torrent's label' option on 'Move completed downloads'.  BiglyBT can handle this feature by setting the "Move On Complete" directory on a specific Tag.
+* Transfer Cap and daily bandwidth usage stats.
   To manually create Transfer Caps in BiglyBT, see [Speed Limit Scheduler: Network Limits](https://github.com/BiglySoftware/BiglyBT/wiki/Speed-Limit-Scheduler#Network_Limits) wiki page.
   For example, if you want a monthly cap of 200G, in Tools->Speed Limits->Schedule and Settings, you'd need the following lines:
     ```
     net_limit monthly total=200G
     ```
   Make sure your stats start day is set to the right day in Tools->Options->Statistics->Long Term
-* Adjusting or stopping torrents based on Seeding Goals are not compatible with BiglyBT's.  You will most likely need to rebuild your goals using First Priority Rules, Ignore Rules, Tagging logic, and/or the AutoPilot plugin.
-* Anything related to Paired Devices is not imported from uT
-* WebUI and uT Remote settings are not migrated.  BiglyBT has a Transmission compatible remote rpc that can be accessed via Tools->Remote Pairing, or by installing the xmwebui plugin.
-* uT's Advanced->Run Program (global and per-torrent) migration not supported.  Equivilant functionality can be obtained using the Command Runner plugin.
-* Disk Cache setting are not migrated
-* Column setup is not migrated
-* RSS Feeds are not migrated
+
+#### Skipped
+* Disk Cache settings
+* Column setup
+* RSS Feeds
 * Most uT settings listed in Preferences->Advanced are not migrated yet. The entries you changed manually will be listed during the analysis phase.
+* WebUI and uT Remote settings.  BiglyBT has a Transmission compatible remote rpc that can be accessed via Tools->Remote Pairing, or by installing the xmwebui plugin.
+* Paired Devices
+
+#### Migration Notes
+
+* "Enable DHT for new torrents" flag in uT will also change accepting peer sources from any plugin (including P2P)
+* Moving .torrent files on completion also required moving data files on completion (Plugin limitation, not a BiglyBT one. In BiglyBT, this can be done with Tags)
