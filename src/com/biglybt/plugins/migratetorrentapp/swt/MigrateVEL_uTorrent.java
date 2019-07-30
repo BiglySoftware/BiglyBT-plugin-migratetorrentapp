@@ -330,8 +330,9 @@ public class MigrateVEL_uTorrent
 
 	@Override
 	public void migrationComplete(String migrateLog) {
-		pi.getUIManager().showTextMessage("migrateapp.results.title", null,
-				migrateLog);
+		// TODO: Would be better to show results and a Restart Now button
+		pi.getUIManager().showTextMessage("migrateapp.results.title",
+				"restart.required.for.some", migrateLog);
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,
