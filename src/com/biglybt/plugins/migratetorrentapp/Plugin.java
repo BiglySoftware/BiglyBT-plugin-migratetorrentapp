@@ -20,11 +20,14 @@ package com.biglybt.plugins.migratetorrentapp;
 
 import com.biglybt.core.util.Debug;
 
+import com.biglybt.pif.PluginConfig;
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.UnloadablePlugin;
 import com.biglybt.pif.ui.UIInstance;
 import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.UIManagerListener;
+import com.biglybt.ui.swt.speedtest.SpeedTestSelector;
+import com.biglybt.ui.swt.views.skin.WelcomeView;
 
 public class Plugin
 	implements UnloadablePlugin
@@ -33,6 +36,8 @@ public class Plugin
 	private MigrateTorrentAppUI ui;
 
 	private boolean destroyed;
+
+	private PluginInterface pi;
 
 	@Override
 	public void unload() {
@@ -46,6 +51,8 @@ public class Plugin
 			destroyed = true;
 		}
 
+		restoreSpeedTest(false);
+
 		if (ui != null) {
 
 			ui.destroy();
@@ -56,6 +63,8 @@ public class Plugin
 
 	@Override
 	public void initialize(PluginInterface pi) {
+		this.pi = pi;
+
 		UIManager uiManager = pi.getUIManager();
 
 		uiManager.addUIListener(new UIManagerListener() {
@@ -94,5 +103,23 @@ public class Plugin
 
 	public boolean isDestroyed() {
 		return destroyed;
+	}
+
+	public void restoreSpeedTest(boolean runSpeedTestIfNeeded) {
+		if (pi == null) {
+			return;
+		}
+		PluginConfig pluginConfig = pi.getPluginconfig();
+		boolean restoreSpeedTest = pluginConfig.getPluginBooleanParameter(
+				"Restore SpeedTest", false);
+
+		if (restoreSpeedTest) {
+			pluginConfig.setUnsafeBooleanParameter("SpeedTest Completed", false);
+			pluginConfig.removePluginParameter("Restore SpeedTest");
+			if (runSpeedTestIfNeeded) {
+				SpeedTestSelector.runMLABTest(
+						() -> WelcomeView.setWaitLoadingURL(false));
+			}
+		}
 	}
 }

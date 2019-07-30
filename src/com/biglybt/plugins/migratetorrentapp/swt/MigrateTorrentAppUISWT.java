@@ -92,8 +92,10 @@ public class MigrateTorrentAppUISWT
 						if (result == 1) {
 							pi.getPluginconfig().setPluginParameter("show.initial.popup",
 									false);
+							plugin.restoreSpeedTest(true);
 							return;
 						}
+						plugin.restoreSpeedTest(false);
 						swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE_UT,
 								configModel_uTorrent);
 					});
