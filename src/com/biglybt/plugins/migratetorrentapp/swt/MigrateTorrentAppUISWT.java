@@ -40,9 +40,11 @@ public class MigrateTorrentAppUISWT
 	implements MigrateTorrentAppUI
 {
 
-	public static final String VIEWID_MIGRATE = "migrate";
+	public static final String VIEWID_MIGRATE_UT = "migrate.uT";
 
 	private static MigrateTorrentAppUISWT instance;
+
+	private static Plugin plugin;
 
 	private final PluginInterface pi;
 
@@ -54,6 +56,7 @@ public class MigrateTorrentAppUISWT
 
 	public static MigrateTorrentAppUISWT getSingleton(PluginInterface pi,
 			UIInstance uiInstance, Plugin plugin) {
+		MigrateTorrentAppUISWT.plugin = plugin;
 		if (instance == null) {
 			instance = new MigrateTorrentAppUISWT(pi, (UISWTInstance) uiInstance);
 		}
@@ -64,22 +67,19 @@ public class MigrateTorrentAppUISWT
 		this.pi = pi;
 		this.swtInstance = swtInstance;
 
-		UIManager uiManager = pi.getUIManager();
-		ConfigModel_uTorrent configModel_uTorrent = new ConfigModel_uTorrent(
-				pi).setupConfigModel(uiManager);
+		ConfigModel_uTorrent configModel_uTorrent = ConfigModel_uTorrent.getInstance(pi);
 
+		UIManager uiManager = pi.getUIManager();
 		MenuManager menuManager = uiManager.getMenuManager();
 		MenuItem menuItem = menuManager.addMenuItem(MenuManager.MENU_MENUBAR_TOOLS,
 				"menu.utorrent.migrate");
-		menuItem.addListener((menu, target) -> {
-			swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
-					configModel_uTorrent);
-		});
+		menuItem.addListener((menu, target) -> swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE_UT,
+				configModel_uTorrent));
 
-		swtInstance.addView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
-				MigrateViewEventListener.class, configModel_uTorrent);
+		swtInstance.addView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE_UT,
+				MigrateVEL_uTorrent.class, configModel_uTorrent);
 
-		boolean showImportPopup = configModel_uTorrent.showImportPopup();
+		boolean showImportPopup = ConfigModel_uTorrent.showImportPopup(pi);
 		if (showImportPopup) {
 			LocaleUtilities localeUtilities = pi.getUtilities().getLocaleUtilities();
 			swtInstance.promptUser(
@@ -94,7 +94,7 @@ public class MigrateTorrentAppUISWT
 									false);
 							return;
 						}
-						swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE,
+						swtInstance.openView(UISWTInstance.VIEW_MAIN, VIEWID_MIGRATE_UT,
 								configModel_uTorrent);
 					});
 		}
@@ -107,7 +107,7 @@ public class MigrateTorrentAppUISWT
 
 	@Override
 	public void destroy() {
-		swtInstance.removeViews("", VIEWID_MIGRATE);
+		swtInstance.removeViews("", VIEWID_MIGRATE_UT);
 	}
 
 	@Override

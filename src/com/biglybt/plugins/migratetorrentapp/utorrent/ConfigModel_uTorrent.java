@@ -37,6 +37,14 @@ import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 
 public class ConfigModel_uTorrent
 {
+	private static ConfigModel_uTorrent instance;
+
+	public static ConfigModel_uTorrent getInstance(PluginInterface pi) {
+		if (instance == null) {
+			instance = new ConfigModel_uTorrent(pi);
+		}
+		return instance;
+	}
 
 	public interface MigrateListener
 	{
@@ -74,7 +82,7 @@ public class ConfigModel_uTorrent
 
 	private Importer_uTorrent importer;
 
-	public ConfigModel_uTorrent(PluginInterface pi) {
+	private ConfigModel_uTorrent(PluginInterface pi) {
 		this.pi = pi;
 	}
 
@@ -90,7 +98,7 @@ public class ConfigModel_uTorrent
 	private void buildConfigModel(UIManager uiManager) {
 		configModel = uiManager.createBasicPluginConfigModel("utMigrate.title");
 
-		File configDir = getDefaultConfigDir();
+		File configDir = getDefaultConfigDir(pi);
 		paramConfigDir = configModel.addDirectoryParameter2("utConfigDir",
 				"utMigrate.configDir",
 				configDir == null ? "" : configDir.getAbsolutePath());
@@ -255,11 +263,7 @@ public class ConfigModel_uTorrent
 
 	}
 
-	public ConfigModel_uTorrent setupConfigModel(UIManager uiManager) {
-		return this;
-	}
-
-	public boolean showImportPopup() {
+	public static boolean showImportPopup(PluginInterface pi) {
 		// Only show when there's 0 non-low noise torrents, and we are on first app version, and we have a real uT/BT dir
 
 		PluginConfig pluginconfig = pi.getPluginconfig();
@@ -287,10 +291,10 @@ public class ConfigModel_uTorrent
 			return false;
 		}
 
-		return new File(getDefaultConfigDir(), "settings.dat").isFile();
+		return new File(getDefaultConfigDir(pi), "settings.dat").isFile();
 	}
 
-	File getDefaultConfigDir() {
+	static File getDefaultConfigDir(PluginInterface pi) {
 		File dir = null;
 		if (pi.getUtilities().isWindows()) {
 			dir = getConfigDir_Windows();
@@ -301,7 +305,7 @@ public class ConfigModel_uTorrent
 		return dir;
 	}
 
-	private File getConfigDir_OSX() {
+	private static File getConfigDir_OSX() {
 		String userHome = System.getProperty("user.home");
 		File dirUT = new File(userHome + "/Library/Application Support/uTorrent");
 		File dirBT = new File(userHome + "/Library/Application Support/BitTorrent");

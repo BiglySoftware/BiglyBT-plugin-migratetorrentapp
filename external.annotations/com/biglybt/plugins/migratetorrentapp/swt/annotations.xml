@@ -17,7 +17,7 @@
   -->
 
 <root>
-    <item name='com.biglybt.plugins.migratetorrentapp.swt.MigrateViewEventListener void initialize(org.eclipse.swt.widgets.Composite) 0'>
+    <item name='com.biglybt.plugins.migratetorrentapp.swt.MigrateVEL_uTorrent void initialize(org.eclipse.swt.widgets.Composite) 0'>
         <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>
 </root>

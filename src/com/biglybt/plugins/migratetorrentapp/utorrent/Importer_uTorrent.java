@@ -253,7 +253,7 @@ public class Importer_uTorrent
 			return;
 		}
 
-		File defaultConfigDir = configModelInfo.getDefaultConfigDir();
+		File defaultConfigDir = configModelInfo.getDefaultConfigDir(pi);
 		if (defaultConfigDir != null && defaultConfigDir.equals(configDir)) {
 			utDirSeparator = pi.getUtilities().isWindows() ? '\\' : '/';
 			return;

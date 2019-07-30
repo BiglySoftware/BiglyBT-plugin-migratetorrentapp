@@ -60,7 +60,7 @@ import com.biglybt.pif.utils.LocaleUtilities;
 import static com.biglybt.plugins.migratetorrentapp.Utils.NL;
 import static com.biglybt.plugins.migratetorrentapp.Utils.hidePrivate;
 
-public class MigrateViewEventListener
+public class MigrateVEL_uTorrent
 	implements UISWTViewEventListener, MigrateListener
 {
 	private UISWTView swtView;
@@ -103,7 +103,6 @@ public class MigrateViewEventListener
 				break;
 
 			case UISWTViewEvent.TYPE_INITIALIZE:
-
 				initialize((Composite) event.getData());
 				break;
 
@@ -133,6 +132,13 @@ public class MigrateViewEventListener
 
 	private void initialize(Composite parent) {
 		this.parent = parent;
+		if (configModelInfo == null) {
+			// Bug in BBT <= 2.0.0.0 where view doesn't get the datasource if 
+			// view was first loaded from previous launch.
+			// We use datasource to get configModelInfo. Since this class is for uT,
+			// we'll just snatch the stored instance.
+			configModelInfo = ConfigModel_uTorrent.getInstance(pi);
+		}
 
 		sc = new ScrolledComposite(parent, SWT.V_SCROLL);
 		sc.setExpandHorizontal(true);
