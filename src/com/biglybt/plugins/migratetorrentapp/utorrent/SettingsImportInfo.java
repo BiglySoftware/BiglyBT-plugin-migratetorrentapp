@@ -26,7 +26,6 @@ import java.lang.reflect.Field;
 import java.util.*;
 
 import com.biglybt.core.config.COConfigurationManager;
-import com.biglybt.core.config.ConfigKeys;
 import com.biglybt.core.config.ConfigKeys.*;
 import com.biglybt.core.config.impl.ConfigurationDefaults;
 import com.biglybt.core.util.BDecoder;
@@ -66,6 +65,8 @@ public class SettingsImportInfo
 	boolean hasRunProgram;
 
 	public boolean preAllocSpace;
+
+	private boolean migrateConfig = true;
 
 	public SettingsImportInfo(Importer_uTorrent importer) {
 		this.importer = importer;
@@ -118,12 +119,12 @@ public class SettingsImportInfo
 
 				if (listDirHist.size() > 0) {
 					List<String> existing = COConfigurationManager.getStringListParameter(
-							ConfigKeys.File.SCFG_SAVE_TO_LIST);
+							SCFG_SAVE_TO_LIST);
 					listDirHist.addAll(existing);
 
 					add(new DirectConfigMigrate().addPrivate(
 							SettingsConstants.ADD_DIALOG_HIST, utListDirHistStrings,
-							ConfigKeys.File.SCFG_SAVE_TO_LIST, listDirHist));
+							SCFG_SAVE_TO_LIST, listDirHist));
 				}
 			}
 
@@ -578,10 +579,8 @@ public class SettingsImportInfo
 	private void processPreferencesConnection() {
 		long bindPort = MapUtils.getMapLong(utSettings, Connection.BIND_PORT, 0);
 		if (bindPort > 0) {
-			add(new DirectConfigMigrate(Connection.BIND_PORT,
-					ConfigKeys.Connection.ICFG_TCP_LISTEN_PORT, bindPort).add(
-							Connection.BIND_PORT, ConfigKeys.Connection.ICFG_UDP_LISTEN_PORT,
-							bindPort));
+			add(new DirectConfigMigrate(Connection.BIND_PORT, ICFG_TCP_LISTEN_PORT,
+					bindPort).add(Connection.BIND_PORT, ICFG_UDP_LISTEN_PORT, bindPort));
 		}
 
 		///
@@ -667,8 +666,7 @@ public class SettingsImportInfo
 			String savePath = importer.replaceFolders(origSavePath);
 			if (savePath.length() > 0 && new File(savePath).isDirectory()) {
 				add(new DirectConfigMigrate().addPrivate(
-						Directories.DIR_ACTIVE_DOWNLOAD,
-						ConfigKeys.File.SCFG_DEFAULT_SAVE_PATH, savePath));
+						Directories.DIR_ACTIVE_DOWNLOAD, SCFG_DEFAULT_SAVE_PATH, savePath));
 			} else {
 				logWarnings.append("Invalid default save folder of ").append(
 						Utils.wrapString(savePath));
@@ -693,7 +691,7 @@ public class SettingsImportInfo
 		if (moveOnCompletePath.length() > 0
 				&& new File(moveOnCompletePath).isDirectory()) {
 			itemDirComplete.addPrivate(Directories.DIR_COMPLETED_DOWNLOAD,
-					ConfigKeys.File.SCFG_COMPLETED_FILES_DIRECTORY, moveOnCompletePath);
+					SCFG_COMPLETED_FILES_DIRECTORY, moveOnCompletePath);
 		} else if (moveOnComplete) {
 			logWarnings.append("Invalid move on complete folder of ").append(
 					Utils.wrapString(moveOnCompletePath));
@@ -714,8 +712,7 @@ public class SettingsImportInfo
 			boolean moveOnlyIfDefault = getFlag(
 					Directories.DIR_COMPLETED_MOVE_IF_DEFDIR, true);
 			itemDirComplete.add(Directories.DIR_COMPLETED_MOVE_IF_DEFDIR,
-					ConfigKeys.File.BCFG_MOVE_ONLY_WHEN_IN_DEFAULT_SAVE_DIR,
-					moveOnlyIfDefault);
+					BCFG_MOVE_ONLY_WHEN_IN_DEFAULT_SAVE_DIR, moveOnlyIfDefault);
 		}
 
 		///
@@ -736,8 +733,7 @@ public class SettingsImportInfo
 			if (!saveTorrentFileDir.isEmpty()
 					&& new File(saveTorrentFileDir).isDirectory()) {
 				add(new DirectConfigMigrate().addPrivate(Directories.DIR_TORRENT_FILES,
-						ConfigKeys.File.SCFG_GENERAL_DEFAULT_TORRENT_DIRECTORY,
-						saveTorrentFileDir));
+						SCFG_GENERAL_DEFAULT_TORRENT_DIRECTORY, saveTorrentFileDir));
 			} else {
 				logWarnings.append("Invalid default .torrent save folder of").append(
 						Utils.wrapString(saveTorrentFileDir));
@@ -762,8 +758,7 @@ public class SettingsImportInfo
 		if (!moveTorrentFileOnCompleteDir.isEmpty()
 				&& new File(moveTorrentFileOnCompleteDir).isDirectory()) {
 			itemMTFOC.addPrivate(Directories.DIR_COMPLETED_TORRENTS,
-					ConfigKeys.File.SCFG_MOVE_TORRENT_WHEN_DONE_DIRECTORY,
-					moveTorrentFileOnCompleteDir);
+					SCFG_MOVE_TORRENT_WHEN_DONE_DIRECTORY, moveTorrentFileOnCompleteDir);
 		}
 		if (moveTorrentFileOnComplete && !moveOnComplete) {
 			logWarnings.append(
@@ -1163,6 +1158,10 @@ public class SettingsImportInfo
 
 	public StringBuilder migrate() {
 		StringBuilder sbMigrateLog = new StringBuilder();
+		if (!migrateConfig) {
+			sbMigrateLog.append("Skipped migrating settings").append(NL);
+			return sbMigrateLog;
+		}
 		for (ConfigMigrateItem item : listConfigMigrations) {
 			try {
 				item.migrate();
@@ -1174,5 +1173,13 @@ public class SettingsImportInfo
 			}
 		}
 		return sbMigrateLog;
+	}
+
+	public void setMigrateConfig(boolean migrateConfig) {
+		this.migrateConfig = migrateConfig;
+	}
+
+	public boolean getMigrateConfig() {
+		return migrateConfig;
 	}
 }

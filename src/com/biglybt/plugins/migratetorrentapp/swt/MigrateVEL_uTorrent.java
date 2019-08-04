@@ -266,6 +266,18 @@ public class MigrateVEL_uTorrent
 		gridData.horizontalSpan = 2;
 		btnShowOnlyWarnings.setLayoutData(gridData);
 
+		Button btnMigrateConfig = new Button(cButtonArea, SWT.CHECK);
+		btnMigrateConfig.setSelection(
+				importer.settingsImportInfo.getMigrateConfig());
+		Messages.setLanguageText(btnMigrateConfig,
+				"migrateapp.options.migrateConfig");
+		btnMigrateConfig.addListener(SWT.Selection,
+				event -> importer.settingsImportInfo.setMigrateConfig(
+						btnMigrateConfig.getSelection()));
+		gridData = new GridData();
+		gridData.horizontalSpan = 2;
+		btnMigrateConfig.setLayoutData(gridData);
+
 		// Using StyledText instead of Text, because Text with focus messed up
 		// scrolling with mouse wheel.
 		resultTextArea = new StyledText(cResultsArea,
