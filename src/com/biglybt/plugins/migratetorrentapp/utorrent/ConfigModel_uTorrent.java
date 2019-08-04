@@ -27,6 +27,7 @@ import com.biglybt.platform.win32.access.AEWin32Access;
 import com.biglybt.platform.win32.access.AEWin32AccessException;
 import com.biglybt.platform.win32.access.AEWin32Manager;
 import com.biglybt.plugins.migratetorrentapp.MigrateTorrentAppUI;
+import com.biglybt.plugins.migratetorrentapp.Utils;
 
 import com.biglybt.pif.PluginConfig;
 import com.biglybt.pif.PluginInterface;
@@ -38,7 +39,7 @@ import com.biglybt.pif.ui.model.BasicPluginConfigModel;
 public class ConfigModel_uTorrent
 {
 	private static ConfigModel_uTorrent instance;
-
+	
 	public static ConfigModel_uTorrent getInstance(PluginInterface pi) {
 		if (instance == null) {
 			instance = new ConfigModel_uTorrent(pi);
@@ -64,6 +65,8 @@ public class ConfigModel_uTorrent
 
 	public DirectoryParameter paramConfigDir;
 
+	public BooleanParameter paramSendAnonStats;
+	
 	public BooleanParameter paramShowAdditionalOptions;
 
 	public StringParameter paramDataDirsRecursive;
@@ -106,6 +109,12 @@ public class ConfigModel_uTorrent
 		LabelParameter paramConfigDirInfo = configModel.addLabelParameter2(
 				"utMigrate.configDir.info");
 		paramConfigDirInfo.setIndent(1, true);
+
+		boolean okToSend = pi.getPluginconfig().getUnsafeBooleanParameter(
+				"Send Version Info");
+		paramSendAnonStats = configModel.addBooleanParameter2(
+				"sendAnonStats", "migrateapp.sendAnonStats", okToSend);
+		paramSendAnonStats.setSuffixLabelKey("migrateapp.sendAnonStats.info");
 
 		configModel.createGroup(null, paramConfigDir, paramConfigDirInfo);
 
@@ -222,7 +231,6 @@ public class ConfigModel_uTorrent
 					paramAnalyze.setEnabled(true);
 					// Can do this after 2001
 					//actionMigrate.setVisible(true);
-					actionMigrate.setEnabled(importer.canMigrate());
 				}
 
 				@Override
@@ -254,6 +262,9 @@ public class ConfigModel_uTorrent
 				public void migrationComplete(String migrateLog) {
 					removeListener(this);
 					actionMigrate.setEnabled(true);
+					if (paramSendAnonStats.getValue()) {
+						Utils.logEvent(pi, "MIGRATED_UTORRENT");
+					}
 				}
 			};
 			addListener(l);

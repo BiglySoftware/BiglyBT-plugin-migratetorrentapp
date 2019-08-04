@@ -18,6 +18,10 @@
 
 package com.biglybt.plugins.migratetorrentapp;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.regex.Matcher;
@@ -28,6 +32,8 @@ import org.gudy.bouncycastle.util.encoders.Base64;
 import com.biglybt.core.util.Constants;
 import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.RandomUtils;
+
+import com.biglybt.pif.PluginInterface;
 
 public class Utils
 {
@@ -98,7 +104,8 @@ public class Utils
 		return s;
 	}
 
-	public static String getErrorAndHideStuff(Throwable t, String... hideStrings) {
+	public static String getErrorAndHideStuff(Throwable t,
+			String... hideStrings) {
 		String s = Debug.getNestedExceptionMessageAndStack(t);
 		if (hideStrings == null || hideStrings.length == 0) {
 			return s;
@@ -107,5 +114,85 @@ public class Utils
 			s = wrapSubString(s, hideString);
 		}
 		return s;
+	}
+
+	public static String getOSLogName() {
+		String osVersion;
+		osVersion = System.getProperty("os.name") + "_"
+				+ System.getProperty("os.version") + "_"
+				+ System.getProperty("os.arch");
+		String pLevel = System.getProperty("sun.os.patch.level");
+		if (pLevel != null && !pLevel.equals("unknown")) {
+			osVersion += "_" + pLevel;
+		}
+		if (osVersion.length() > 64) {
+			osVersion = osVersion.substring(0, 64); //sanity check
+		}
+		return osVersion;
+	}
+
+	public static void logEvent(PluginInterface pi, String event) {
+		try {
+
+			if (event.length() > 64)
+				event = event.substring(0, 64);
+			event = event.replaceAll("\\|", ";");
+
+			//HashMap log_map = new HashMap();
+
+			String javaVersion = System.getProperty("java.runtime.version"); //use just java.version?
+			if (javaVersion.length() > 64)
+				javaVersion = javaVersion.substring(0, 64); //sanity check        
+
+			String azid = pi.getPluginconfig().getUnsafeStringParameter("ID", "");
+			// @formatter:off
+			final String url = "https://rpc.biglybt.com/rpc.php?payload=" + URLEncoder.encode(
+					"{" +
+							"\"azid\":\"" + azid + "\"," +
+							"\"azv\":\"" + pi.getApplicationVersion() + "\"," +
+							"\"commands\":[{" +
+							"\"seq-id\":1," +
+							"\"listener-id\":\"install-stats\"," +
+							"\"op-id\":\"log\"," +
+							"\"values\":{" +
+							"\"event-type\":\"" + event + "\"," +
+							"\"installer-version\":\"" + pi.getPluginVersion() + "\"," +
+							"\"os-version\":\"" + getOSLogName() + "\"," +
+							"\"java-version\":\"" + javaVersion + "\"" +
+							"}}]}", "utf-8").replaceAll(" ", "%20");
+			// @formatter:on
+
+			Thread t = new Thread(() -> readUrlAsString(url, false), "Remote Log");
+			t.start();
+
+		} catch (Throwable t) {
+		}
+	}
+
+	public static String readUrlAsString(String url, boolean retry) {
+		StringBuffer sb = new StringBuffer();
+		try {
+			URL _url = new URL(url);
+			HttpURLConnection con = (HttpURLConnection) _url.openConnection();
+
+			con.setConnectTimeout(800);
+			con.setReadTimeout(2000);
+			InputStream is = con.getInputStream();
+
+			byte[] buffer = new byte[256];
+
+			int read = 0;
+
+			while ((read = is.read(buffer)) != -1) {
+				sb.append(new String(buffer, 0, read));
+			}
+			con.disconnect();
+
+		} catch (Throwable e) {
+			if (retry) {
+				readUrlAsString(url, false);
+			}
+		}
+		return sb.toString();
 	}
 }
