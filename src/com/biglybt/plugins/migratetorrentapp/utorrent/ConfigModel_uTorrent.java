@@ -35,11 +35,14 @@ import com.biglybt.pif.download.Download;
 import com.biglybt.pif.ui.UIManager;
 import com.biglybt.pif.ui.config.*;
 import com.biglybt.pif.ui.model.BasicPluginConfigModel;
+import com.biglybt.pif.utils.LocaleUtilities;
 
 public class ConfigModel_uTorrent
 {
 	private static ConfigModel_uTorrent instance;
-	
+
+	private final LocaleUtilities localeUtilities;
+
 	public static ConfigModel_uTorrent getInstance(PluginInterface pi) {
 		if (instance == null) {
 			instance = new ConfigModel_uTorrent(pi);
@@ -51,10 +54,19 @@ public class ConfigModel_uTorrent
 	{
 		void initMigrateListener();
 
+		default void analysisStart(Importer_uTorrent importer_uTorrent) {
+		}
+
 		default void analysisStatus(String status) {
 		}
 
 		void analysisComplete(Importer_uTorrent importer_uTorrent);
+
+		default void migrationStart(Importer_uTorrent importer_uTorrent) {
+		}
+
+		default void migrationStatus(String status) {
+		}
 
 		void migrationComplete(String migrateLog);
 	}
@@ -66,7 +78,7 @@ public class ConfigModel_uTorrent
 	public DirectoryParameter paramConfigDir;
 
 	public BooleanParameter paramSendAnonStats;
-	
+
 	public BooleanParameter paramShowAdditionalOptions;
 
 	public StringParameter paramDataDirsRecursive;
@@ -87,6 +99,7 @@ public class ConfigModel_uTorrent
 
 	private ConfigModel_uTorrent(PluginInterface pi) {
 		this.pi = pi;
+		localeUtilities = pi.getUtilities().getLocaleUtilities();
 	}
 
 	public BasicPluginConfigModel getConfigModel(UIManager uiManager,
@@ -112,8 +125,8 @@ public class ConfigModel_uTorrent
 
 		boolean okToSend = pi.getPluginconfig().getUnsafeBooleanParameter(
 				"Send Version Info");
-		paramSendAnonStats = configModel.addBooleanParameter2(
-				"sendAnonStats", "migrateapp.sendAnonStats", okToSend);
+		paramSendAnonStats = configModel.addBooleanParameter2("sendAnonStats",
+				"migrateapp.sendAnonStats", okToSend);
 		paramSendAnonStats.setSuffixLabelKey("migrateapp.sendAnonStats.info");
 
 		configModel.createGroup(null, paramConfigDir, paramConfigDirInfo);
@@ -387,20 +400,47 @@ public class ConfigModel_uTorrent
 
 	public void analysisStatus(String statusID) {
 		String s = statusID.isEmpty() ? ""
-				: pi.getUtilities().getLocaleUtilities().getLocalisedMessageText(
-						statusID);
+				: localeUtilities.getLocalisedMessageText(statusID);
+		MigrateListener[] listeners = getListeners();
+		for (MigrateListener listener : listeners) {
+			try {
+				listener.analysisStatus(s);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+	}
+
+	public void analysisStatus(String statusID, String... params) {
+		String s = localeUtilities.getLocalisedMessageText(statusID, params);
 		MigrateListener[] listeners = getListeners();
 		for (MigrateListener listener : listeners) {
 			listener.analysisStatus(s);
 		}
 	}
 
-	public void analysisStatus(String statusID, String... params) {
-		String s = pi.getUtilities().getLocaleUtilities().getLocalisedMessageText(
-				statusID, params);
+	public void migrateStatus(String statusID) {
+		String s = statusID.isEmpty() ? ""
+				: localeUtilities.getLocalisedMessageText(statusID);
 		MigrateListener[] listeners = getListeners();
 		for (MigrateListener listener : listeners) {
-			listener.analysisStatus(s);
+			try {
+				listener.migrationStatus(s);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+	}
+
+	public void migrateStatus(String statusID, String... params) {
+		String s = localeUtilities.getLocalisedMessageText(statusID, params);
+		MigrateListener[] listeners = getListeners();
+		for (MigrateListener listener : listeners) {
+			try {
+				listener.migrationStatus(s);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
 		}
 	}
 

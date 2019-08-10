@@ -195,4 +195,12 @@ public class Utils
 		}
 		return sb.toString();
 	}
+
+	public static void randomSleep() {
+		try {
+			Thread.sleep((long) (Math.random() * 1000) + 200);
+		} catch (InterruptedException e) {
+		}
+	}
+
 }

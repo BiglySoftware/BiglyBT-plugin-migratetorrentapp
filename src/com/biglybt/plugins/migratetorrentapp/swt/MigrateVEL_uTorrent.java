@@ -41,6 +41,7 @@ import com.biglybt.plugins.migratetorrentapp.utorrent.ConfigModel_uTorrent.Migra
 import com.biglybt.plugins.migratetorrentapp.utorrent.Importer_uTorrent;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TagToAddInfo;
 import com.biglybt.plugins.migratetorrentapp.utorrent.TorrentImportInfo;
+import com.biglybt.ui.UIFunctions;
 import com.biglybt.ui.UIFunctionsManager;
 import com.biglybt.ui.swt.Messages;
 import com.biglybt.ui.swt.Utils;
@@ -49,7 +50,10 @@ import com.biglybt.ui.swt.pif.UISWTView;
 import com.biglybt.ui.swt.pif.UISWTViewEvent;
 import com.biglybt.ui.swt.pif.UISWTViewEventListener;
 import com.biglybt.ui.swt.pifimpl.MultiParameterImplListenerSWT;
+import com.biglybt.ui.swt.shells.MessageBoxShell;
+import com.biglybt.ui.swt.skin.SWTSkinObjectText;
 import com.biglybt.ui.swt.views.ConfigView;
+import com.biglybt.ui.swt.views.skin.SkinnedDialog;
 
 import com.biglybt.pif.PluginInterface;
 import com.biglybt.pif.ui.config.Parameter;
@@ -86,6 +90,11 @@ public class MigrateVEL_uTorrent
 	private Label lblStatus;
 
 	private ParameterListener paramSAOListener;
+
+	private SkinnedDialog dlgProgress;
+
+	// Because migration or analysis may be so fast that dlgProcess might not be created until after completion event
+	private boolean showPogressDialog = false;
 
 	@Override
 	public boolean eventOccurred(UISWTViewEvent event) {
@@ -319,8 +328,54 @@ public class MigrateVEL_uTorrent
 	}
 
 	@Override
-	public void analysisStatus(String status) {
+	public void analysisStart(Importer_uTorrent importer_uTorrent) {
+		LocaleUtilities localeUtilities = pi.getUtilities().getLocaleUtilities();
+		openProgressDialog(localeUtilities.getLocalisedMessageText(
+				"migrateapp.analyzing", new String[] {
+					configModelInfo.paramConfigDir.getValue()
+				}));
+	}
+
+	public void openProgressDialog(String title) {
+		synchronized (this) {
+			showPogressDialog = true;
+		}
 		Utils.execSWTThread(() -> {
+			synchronized (this) {
+				if (!showPogressDialog) {
+					return;
+				}
+				if (dlgProgress == null) {
+					dlgProgress = new SkinnedDialog(this.getClass().getClassLoader(),
+							"com/biglybt/plugins/migratetorrentapp/swt/",
+							"skin3_dlg_progress", "shell", SWT.DIALOG_TRIM);
+					dlgProgress.setTitle(title);
+					dlgProgress.open();
+				}
+			}
+		});
+	}
+
+	@Override
+	public void analysisStatus(String status) {
+		changeStatus(status);
+	}
+
+	private void changeStatus(String status) {
+		Utils.execSWTThread(() -> {
+			synchronized (this) {
+				if (dlgProgress != null) {
+					SWTSkinObjectText soStatusText = (SWTSkinObjectText) dlgProgress.getSkin().getSkinObject(
+							"status-text");
+					if (soStatusText != null) {
+						soStatusText.setText(status);
+						Shell shell = dlgProgress.getShell();
+						Point computeSize = shell.computeSize(shell.getClientArea().width,
+								SWT.DEFAULT);
+						shell.setSize(computeSize);
+					}
+				}
+			}
 			if (lblStatus == null || lblStatus.isDisposed()) {
 				return;
 			}
@@ -330,9 +385,16 @@ public class MigrateVEL_uTorrent
 	}
 
 	@Override
+	public void migrationStatus(String status) {
+		changeStatus(status);
+	}
+
+	@Override
 	public void analysisComplete(Importer_uTorrent importer) {
 		StringBuilder sb = buildAnalysisResults(importer, showOnlyWarningTorrents,
 				true);
+		closeProgressDialog();
+
 		Utils.execSWTThread(() -> {
 			buildResultsArea(importer);
 			resultTextArea.setText(sb.toString());
@@ -341,10 +403,46 @@ public class MigrateVEL_uTorrent
 	}
 
 	@Override
+	public void migrationStart(Importer_uTorrent importer_uTorrent) {
+		LocaleUtilities localeUtilities = pi.getUtilities().getLocaleUtilities();
+		openProgressDialog(localeUtilities.getLocalisedMessageText(
+				"migrateapp.migrating", new String[] {
+					configModelInfo.paramConfigDir.getValue()
+				}));
+	}
+
+	@Override
 	public void migrationComplete(String migrateLog) {
-		// TODO: Would be better to show results and a Restart Now button
-		pi.getUIManager().showTextMessage("migrateapp.results.title",
-				"restart.required.for.some", migrateLog);
+		closeProgressDialog();
+
+		MessageBoxShell mb = new MessageBoxShell(
+				MessageText.getString("migrateapp.results.title"),
+				MessageText.getString("migrateapp.migrated.restart.recommended"),
+				new String[] {
+					MessageText.getString("UpdateWindow.restart"),
+					MessageText.getString("UpdateWindow.restartLater"),
+				}, 0);
+		mb.setHtml("<pre style=\"font-size:70%\">" + migrateLog + "</pre>");
+		mb.open(result -> {
+			if (result != 0) {
+				return;
+			}
+			UIFunctions uif = UIFunctionsManager.getUIFunctions();
+			if (uif != null) {
+				uif.dispose(true, false);
+			}
+		});
+
+	}
+
+	private void closeProgressDialog() {
+		synchronized (this) {
+			showPogressDialog = false;
+			if (dlgProgress != null) {
+				dlgProgress.close();
+				dlgProgress = null;
+			}
+		}
 	}
 
 	private StringBuilder buildAnalysisResults(Importer_uTorrent importer,

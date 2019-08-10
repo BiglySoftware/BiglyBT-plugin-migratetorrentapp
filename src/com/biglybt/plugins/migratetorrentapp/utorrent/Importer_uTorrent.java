@@ -137,6 +137,15 @@ public class Importer_uTorrent
 
 	@Override
 	public void run() {
+		MigrateListener[] listeners = configModelInfo.getListeners();
+		for (MigrateListener l : listeners) {
+			try {
+				l.analysisStart(this);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+
 		gm = CoreFactory.getSingleton().getGlobalManager();
 
 		for (String listTorrentDir : listAdditionalTorrentDirs) {
@@ -204,9 +213,13 @@ public class Importer_uTorrent
 
 		configModelInfo.analysisStatus("migrateapp.status.analysisDone");
 
-		MigrateListener[] listeners = configModelInfo.getListeners();
+		listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
-			l.analysisComplete(this);
+			try {
+				l.analysisComplete(this);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
 		}
 	}
 
@@ -267,12 +280,18 @@ public class Importer_uTorrent
 	}
 
 	private void migrateNow() {
+		MigrateListener[] listeners = configModelInfo.getListeners();
+		for (MigrateListener l : listeners) {
+			l.migrationStart(this);
+		}
+
 		StringBuilder sbMigrateLog = new StringBuilder();
 
 		sbMigrateLog.append("Migration started at ").append(
 				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
 
 		try {
+			configModelInfo.migrateStatus("migrateapp.status.migratingSettings");
 			StringBuilder results = settingsImportInfo.migrate();
 			if (results.length() > 0) {
 				sbMigrateLog.append("Config Migration Log:").append(NL);
@@ -283,6 +302,7 @@ public class Importer_uTorrent
 			sbMigrateLog.append("Error Migrating Settings: ").append(err).append(NL);
 		}
 
+		configModelInfo.migrateStatus("migrateapp.status.migratingTags");
 		TagType ttManual = TagManagerFactory.getTagManager().getTagType(
 				TagType.TT_DOWNLOAD_MANUAL);
 		if (ttManual != null) {
@@ -358,14 +378,19 @@ public class Importer_uTorrent
 			}
 		}
 
-		for (TorrentImportInfo importInfo : listTorrentsToImport) {
+		configModelInfo.migrateStatus("migrateapp.status.migratingTags");
+		for (int i = 0, numTorrents = listTorrentsToImport.size(); i < numTorrents; i++) {
+			TorrentImportInfo importInfo = listTorrentsToImport.get(i);
 			try {
+				String torrentName = importInfo.getName();
+				configModelInfo.migrateStatus("migrateapp.status.migratingTorrent",
+						"" + i, "" + numTorrents, torrentName);
 				StringBuilder results = importInfo.migrate();
 				if (results.length() > 0) {
 					sbMigrateLog.append(NL);
 					sbMigrateLog.append("Torrent ").append(
-							Utils.wrapString(importInfo.getName())).append(
-									" Migration Log:").append(NL);
+							Utils.wrapString(torrentName)).append(" Migration Log:").append(
+									NL);
 					sbMigrateLog.append(results).append(NL);
 					if (results.indexOf("Already exists in BiglyBT") == -1) {
 						sbMigrateLog.append("\t");
@@ -382,6 +407,8 @@ public class Importer_uTorrent
 				sbMigrateLog.append(NL);
 			}
 		}
+
+		configModelInfo.migrateStatus("migrateapp.status.migrationComplete");
 
 		sbMigrateLog.append(NL).append("Migration ended at ").append(
 				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
@@ -402,7 +429,7 @@ public class Importer_uTorrent
 		FileUtil.writeStringAsFile(logFile, migrateLog);
 		FileUtil.writeStringAsFile(logFileHidden, Utils.hidePrivate(migrateLog));
 
-		MigrateListener[] listeners = configModelInfo.getListeners();
+		listeners = configModelInfo.getListeners();
 		for (MigrateListener l : listeners) {
 			l.migrationComplete(migrateLog);
 		}
