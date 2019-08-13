@@ -408,7 +408,7 @@ public class Importer_uTorrent
 			}
 		}
 
-		configModelInfo.migrateStatus("migrateapp.status.migrationComplete");
+		configModelInfo.migrateStatus("migrateapp.status.migratingDone");
 
 		sbMigrateLog.append(NL).append("Migration ended at ").append(
 				DisplayFormatters.formatDate(System.currentTimeMillis())).append(NL);
