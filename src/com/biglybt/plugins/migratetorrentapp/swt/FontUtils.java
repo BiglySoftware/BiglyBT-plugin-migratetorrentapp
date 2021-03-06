@@ -31,7 +31,7 @@ public class FontUtils
 	private static final String[] MONO_FONT_NAMES = {
 		"Monaco",
 		"Consolas",
-		"Lucidia Console",
+		"Lucida Console",
 		"Courier",
 		"Courier New",
 		"Monospace"
