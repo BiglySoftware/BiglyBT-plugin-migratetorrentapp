@@ -72,7 +72,7 @@ public class Utils
 		if (substring == null) {
 			return s;
 		}
-		return s.replaceAll("\\Q" + substring + "\\E",
+		return s.replaceAll(Pattern.quote(substring),
 				Matcher.quoteReplacement(PRIVWRAP[0] + substring + PRIVWRAP[1]));
 	}
 
